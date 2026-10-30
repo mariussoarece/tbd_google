@@ -5,39 +5,51 @@ written in Kotlin with Jetpack Compose (Android's equivalent of SwiftUI).
 
 ## What's in the app
 
-Same six tabs as the iPhone version:
+Same as the iPhone version (branch `tobedone` of the iOS repo):
 
-| Tab | What it does |
-|---|---|
-| **Due** | Tasks with a title, due date and priority (High / Medium / Low). Tap to mark done; incomplete tasks first, sorted by date. A reminder notification is shown at 09:00 on the due date. |
-| **Shopping** | Items with price and priority. Tap the cart to mark as bought; shows total cost of what's left, and a "Completed Purchases" list. |
-| **Monthly** | Recurring monthly costs with a running total. |
-| **Grocery** | Simple list; tap to tick off. |
-| **Other** | Tasks with subtasks. Tap the circle to complete, tap the row to open/add subtasks. |
-| **Settings** | Theme (Default / Light / Dark) and the currency used for new shopping items (default RON). |
+**Home** – date, "Hi, <name> ♥", Settings button, a **Today** card (progress, tasks due,
+activities left, things to buy) and three groups, each opening its own screen:
 
-Small Android extras: **swipe left on any row to delete it**, prices accept both `12.5` and `12,5`,
-and data is included in Android's backup so it survives a phone change.
+| Group | Screen | What it does |
+|---|---|---|
+| PLAN | **To Do** | Tasks with title, **due date and time**, priority. Reminder at the due time. Due / Completed lists, export & import. |
+| PLAN | **Monthly Expenses** | Monthly costs in your currency, with total. Export & import. |
+| PLAN | **Projects** | Projects with subtasks (tick each subtask). Active / Completed lists, export & import. |
+| DO | **Shopping** | Items with price and priority. Tap an item → confirm the real price → bought. Totals, completed purchases with date. |
+| DO | **Grocery** | Quick list; tap to tick off; bought items below. |
+| GROW | **Daily Routine** | Monthly calendar with each day's score (done / total × 10), activities per day, weekly timeline (7 days × 24 h), repeat weekly for N weeks, overlap warning. Reminder when an activity starts. |
+| GROW | **Confidence** | Rate 1–10 with an optional note, 30-day chart, 7/30-day averages, best/worst, streak. Daily Routine scores are added automatically. |
+| GROW | **Focus Test** | Red-dot test (tap when you blink), best/last result, progress chart, history. |
 
-All data stays on the phone (`files/tobedone.json`), nothing is sent anywhere.
+**Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),
+daily summary notification (default 21:00) and activity-start notifications.
+
+**First launch** – the "Caveat" page asks your name, explains the Focus Test and runs it once, then opens Home.
+
+Export files use the same JSON format as the iPhone app, so you can move lists between the two.
+All data stays on the phone (`files/tobedone.json`) and is included in Android's automatic backup.
 
 ## Project layout
 
 ```
 app/src/main/java/ro/vishrama/tobedone/
-  MainActivity.kt          app entry (LifeOrderingApp in Swift)
-  ToBeDoneApp.kt           startup: notification channel, reschedule reminders
-  data/Models.kt           TaskModel, ShoppingItemModel, MonthlyTaskModel, ... 
-  data/AppStore.kt         storage (replaces SwiftData)
-  notifications/           reminders (replaces NotificationManager / UNUserNotificationCenter)
-  ui/MainScreen.kt         bottom tab bar (TabView)
-  ui/screens/*.kt          one file per tab
-  ui/theme/Theme.kt        colours (yellow from the icon) + light/dark
+  MainActivity.kt            app entry (LifeOrderingApp in Swift)
+  ToBeDoneApp.kt             startup: notification channels, reschedule reminders
+  data/Models.kt             TaskModel, ActivityItem, ConfidenceEntry, FocusResult, ...
+  data/AppStore.kt           storage + settings (replaces SwiftData / @AppStorage)
+  data/ExportImport.kt       iOS-compatible export/import files
+  notifications/             due-time, daily summary and activity-start reminders
+  ui/AppRoot.kt              navigation: Home → each screen
+  ui/Components.kt           iOS-style building blocks (grouped lists, pickers, buttons)
+  ui/screens/HomeScreen.kt   the Home screen
+  ui/screens/*.kt            To Do, Monthly, Projects, Shopping, Grocery, Daily Routine,
+                             Confidence, Focus Test, Settings, first-launch intro
+  ui/theme/Theme.kt          iOS system colours, light/dark
 play-store/icon-512.png    the 512×512 icon Play Console asks for
 ```
 
 Package name / application ID: `ro.vishrama.tobedone` (same as the iOS bundle ID).
-Version: `versionName 2.0`, `versionCode 1`. Target SDK 36 (Android 16), which Google Play
+Version: `versionName 2.0`, `versionCode 2`. Target SDK 36 (Android 16), which Google Play
 requires for new apps and updates; min SDK 26 (Android 8.0).
 
 ## 1. Open and run it
@@ -91,5 +103,7 @@ For every new release, increase `versionCode` (1 → 2 → 3 …) and `versionNa
 ## Notes
 
 - Reminders use normal (inexact) alarms, so the app does not need the restricted
-  "exact alarm" permission; the notification may arrive a few minutes after 09:00.
+  "exact alarm" permission (which Google Play only allows for alarm-clock and calendar apps).
+  When the phone is idle a reminder can arrive a few minutes late.
+- The iOS backup/restore screen is replaced by Android's own automatic backup plus export/import.
 - The iOS project had an Apple Watch placeholder; there is no Wear OS version here.
