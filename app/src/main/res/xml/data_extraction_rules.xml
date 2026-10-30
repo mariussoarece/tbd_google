@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: lists survive a phone change via Google backup / device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="tobedone.json" />
+        <include domain="sharedpref" path="settings.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="tobedone.json" />
+        <include domain="sharedpref" path="settings.xml" />
+    </device-transfer>
+</data-extraction-rules>
