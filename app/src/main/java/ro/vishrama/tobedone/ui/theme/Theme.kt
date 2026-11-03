@@ -1,4 +1,5 @@
 package ro.vishrama.tobedone.ui.theme
+import androidx.compose.material3.LocalContentColor
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -93,11 +94,17 @@ fun isDarkTheme(setting: ThemeSetting): Boolean = when (setting) {
     ThemeSetting.DEFAULT -> isSystemInDarkTheme()
 }
 
+
 @Composable
 fun ToBeDoneTheme(setting: ThemeSetting, content: @Composable () -> Unit) {
     // "Default" follows the phone; "Light"/"Dark" force a mode — same as iOS.
     val dark = isDarkTheme(setting)
     CompositionLocalProvider(LocalGrouped provides if (dark) DarkGrouped else LightGrouped) {
-        MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
+        val colors = if (dark) DarkColors else LightColors
+        MaterialTheme(colorScheme = colors) {
+            // Default text colour for the whole app, so Dark mode shows white text
+            CompositionLocalProvider(LocalContentColor provides colors.onBackground, content = content)
+        }
     }
 }
+
