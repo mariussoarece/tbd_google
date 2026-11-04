@@ -13,4 +13,4 @@ ToBeDone is a to-do and shopping list app.
   Google backup, which is handled by Google under your Google account settings.
 - **Deleting data.** Delete items in the app, or uninstall the app to remove all of its data.
 
-Contact: YOUR_EMAIL_HERE
+Contact: marius.soarece@ymail.com
