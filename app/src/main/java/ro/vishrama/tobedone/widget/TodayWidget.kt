@@ -65,7 +65,8 @@ class TodayWidget : GlanceAppWidget() {
             val settings by store.settings.collectAsState()
             val today = LocalDate.now(AppStore.zone())
             GlanceTheme {
-                WidgetContent(context, today, Agenda.forDay(data, today), settings.currency)
+                // Only what's left from the current hour onwards
+                WidgetContent(context, today, Agenda.fromCurrentHour(data), settings.currency)
             }
         }
     }
@@ -136,7 +137,7 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
 
         if (agenda.isEmpty()) {
             Text(
-                "Nothing planned for today.",
+                "Nothing more planned for today.",
                 modifier = GlanceModifier.clickable(openApp),
                 style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurfaceVariant),
             )

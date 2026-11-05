@@ -46,4 +46,17 @@ object Agenda {
 
         return items.sortedBy { it.start }
     }
+
+    /**
+     * Today's items from the start of the current hour onwards (used by the widget).
+     * Activities that started earlier but are still going on are kept too.
+     */
+    fun fromCurrentHour(data: AppData, now: Long = System.currentTimeMillis()): List<AgendaItem> {
+        val zone = AppStore.zone()
+        val nowTime = java.time.Instant.ofEpochMilli(now).atZone(zone)
+        val hourStart = nowTime.truncatedTo(java.time.temporal.ChronoUnit.HOURS).toInstant().toEpochMilli()
+        return forDay(data, nowTime.toLocalDate()).filter {
+            it.start >= hourStart || it.start + it.durationMinutes * 60_000L > now
+        }
+    }
 }

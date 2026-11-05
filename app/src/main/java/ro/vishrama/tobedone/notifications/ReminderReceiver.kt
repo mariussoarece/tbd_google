@@ -14,6 +14,7 @@ import ro.vishrama.tobedone.MainActivity
 import ro.vishrama.tobedone.R
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.describeMinutes
+import ro.vishrama.tobedone.widget.TodayWidget
 import java.time.LocalDate
 
 /** Shows a reminder when one of the alarms set by [ReminderScheduler] fires. */
@@ -54,6 +55,8 @@ class ReminderReceiver : BroadcastReceiver() {
                         "Monthly expense", "${m.title}$amount is due today.")
                 }
             }
+
+            ReminderScheduler.KIND_WIDGET_HOUR -> TodayWidget.requestUpdate(context)
 
             ReminderScheduler.KIND_TASK_EARLY -> {
                 val t = data.tasks.firstOrNull { it.id == id }

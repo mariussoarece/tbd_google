@@ -38,6 +38,7 @@ object ReminderScheduler {
     const val KIND_ACTIVITY = "activity"
     const val KIND_MONTHLY = "monthly"
     const val KIND_TASK_EARLY = "taskearly"
+    const val KIND_WIDGET_HOUR = "widgethour"
     const val KIND_ACTIVITY_EARLY = "activityearly"
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
@@ -117,6 +118,11 @@ object ReminderScheduler {
             .take(MAX_ACTIVITY_ALARMS)
             .forEach { (a, at) -> wanted["$KIND_ACTIVITY_EARLY:${a.id}"] = at }
 
+        // Redraw the widget at the start of every hour, so it always begins at the current hour
+        val nextHour = java.time.Instant.ofEpochMilli(now).atZone(AppStore.zone())
+            .truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusHours(1)
+        wanted["$KIND_WIDGET_HOUR:next"] = nextHour.toInstant().toEpochMilli()
+
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previous = prefs.getStringSet(KEY_SCHEDULED, emptySet()) ?: emptySet()
@@ -127,7 +133,9 @@ object ReminderScheduler {
         }
         // (Re)schedule the ones we want; the same key replaces the old alarm
         for ((key, at) in wanted) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pendingIntent(context, key))
+            // The hourly widget refresh doesn't need to wake the phone up
+            val type = if (key.startsWith(KIND_WIDGET_HOUR)) AlarmManager.RTC else AlarmManager.RTC_WAKEUP
+            alarmManager.setAndAllowWhileIdle(type, at, pendingIntent(context, key))
         }
         prefs.edit().putStringSet(KEY_SCHEDULED, wanted.keys.toSet()).apply()
     }

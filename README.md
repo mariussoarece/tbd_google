@@ -28,7 +28,7 @@ activities left, things to buy) and three groups, each opening its own screen:
 - **Home-screen widget** "ToBeDone – Today": today's items by time and a **+** that opens To Do to add a task.
 
 **New in 2.2**
-- Widget is half the screen wide (2 columns); the **+** opens the Home screen.
+- Widget is half the screen wide (2 columns), shows today from the current hour onwards (refreshed every hour); the **+** opens the Home screen.
 - **Remind me before** (2.3): when adding a To Do task or a Daily Routine activity you can pick a date & time
   for an extra reminder: "X is starting in 2 days and 30 min" / "X is starting in 45 min".
   Monthly Expenses only get the reminder on their day and time.
@@ -61,7 +61,7 @@ play-store/icon-512.png    the 512×512 icon Play Console asks for
 ```
 
 Package name / application ID: `ro.vishrama.tobedone` (same as the iOS bundle ID).
-Version: `versionName 2.3`, `versionCode 6`. Target SDK 36 (Android 16), which Google Play
+Version: `versionName 2.4`, `versionCode 7`. Target SDK 36 (Android 16), which Google Play
 requires for new apps and updates; min SDK 26 (Android 8.0).
 
 ## 1. Open and run it
