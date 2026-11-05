@@ -21,8 +21,8 @@ android {
         applicationId = "ro.vishrama.tobedone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 4
+        versionName = "2.1"
     }
 
     signingConfigs {
@@ -72,6 +72,7 @@ dependencies {
 
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("androidx.glance:glance-appwidget:1.1.1")   // home-screen widget
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")

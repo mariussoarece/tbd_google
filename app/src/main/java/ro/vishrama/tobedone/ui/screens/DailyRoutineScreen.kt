@@ -52,6 +52,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ro.vishrama.tobedone.data.Activity
+import ro.vishrama.tobedone.data.Agenda
+import ro.vishrama.tobedone.data.AgendaItem
+import ro.vishrama.tobedone.data.AgendaKind
+import ro.vishrama.tobedone.data.AppData
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ExportImport
 import ro.vishrama.tobedone.data.newId
@@ -67,7 +71,9 @@ import ro.vishrama.tobedone.ui.RowDivider
 import ro.vishrama.tobedone.ui.SectionHeader
 import ro.vishrama.tobedone.ui.Segmented
 import ro.vishrama.tobedone.ui.Stepper
+import ro.vishrama.tobedone.ui.formatDateTime
 import ro.vishrama.tobedone.ui.formatTime
+import ro.vishrama.tobedone.ui.money
 import ro.vishrama.tobedone.ui.groupedList
 import ro.vishrama.tobedone.ui.rememberExportImport
 import ro.vishrama.tobedone.ui.theme.IOS
@@ -97,18 +103,19 @@ private fun scoreFor(items: List<Activity>): Int? =
 
 /** Daily Routine (iOS DailyActivitiesView). */
 @Composable
-fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit) {
+fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit, startWeekly: Boolean = false) {
     val data by store.data.collectAsStateWithLifecycle()
     val io = rememberExportImport(store, ExportImport.Kind.ACTIVITIES)
     val g = LocalGrouped.current
 
     val today = LocalDate.now(AppStore.zone())
-    var view by rememberSaveable { mutableStateOf(RoutineView.MONTHLY) }
+    var view by rememberSaveable { mutableStateOf(if (startWeekly) RoutineView.WEEKLY else RoutineView.MONTHLY) }
     var month by rememberSaveable { mutableStateOf(today.withDayOfMonth(1).toEpochDay()) }
     var selected by rememberSaveable { mutableStateOf(today.toEpochDay()) }
     var weekStart by rememberSaveable { mutableStateOf(weekStartOf(today).toEpochDay()) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var detailId by rememberSaveable { mutableStateOf<String?>(null) }
+    var markerKey by rememberSaveable { mutableStateOf<String?>(null) }   // "TASK:id" or "MONTHLY:id"
 
     val monthDate = LocalDate.ofEpochDay(month)
     val selectedDate = LocalDate.ofEpochDay(selected)
@@ -199,7 +206,7 @@ fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit) {
                 }
             }
             item {
-                WeeklyTimeline(LocalDate.ofEpochDay(weekStart), byDay) { detailId = it.id }
+                WeeklyTimeline(LocalDate.ofEpochDay(weekStart), byDay, data, onTap = { detailId = it.id }, onMarkerTap = { markerKey = it.kind.name + ":" + it.id })
             }
         }
     }
@@ -211,6 +218,42 @@ fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit) {
             onDismiss = { showAdd = false },
             onSave = { store.addActivities(it); showAdd = false },
         )
+    }
+
+    // Tapped a To Do / Monthly line in the weekly view
+    markerKey?.let { key ->
+        val (kind, id) = key.split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+        val task = if (kind == AgendaKind.TASK.name) data.tasks.firstOrNull { it.id == id } else null
+        val monthly = if (kind == AgendaKind.MONTHLY.name) data.monthlyTasks.firstOrNull { it.id == id } else null
+        if (task != null || monthly != null) {
+            AlertDialog(
+                onDismissRequest = { markerKey = null },
+                title = { Text(task?.title ?: monthly!!.title) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (task != null) {
+                            Text("To Do · due ${formatDateTime(task.dueAt)}")
+                            Text("Priority: ${task.priority.label}", color = g.secondaryText)
+                        } else if (monthly != null) {
+                            Text("Monthly expense · every month on day ${monthly.dayOfMonth} at ${formatTime(LocalTime.of(monthly.hour, monthly.minute))}")
+                            if (monthly.price > 0) Text(money(monthly.price), color = g.secondaryText)
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (task != null) {
+                        TextButton(onClick = { store.toggleTask(task.id); markerKey = null }) {
+                            Text(if (task.isCompleted) "Mark not done" else "Mark done")
+                        }
+                    } else {
+                        TextButton(onClick = { markerKey = null }) { Text("OK") }
+                    }
+                },
+                dismissButton = {
+                    if (task != null) TextButton(onClick = { markerKey = null }) { Text("Close") }
+                },
+            )
+        }
     }
 
     data.activities.firstOrNull { it.id == detailId }?.let { a ->
@@ -339,7 +382,13 @@ private val DAY_WIDTH = 120.dp
 private val DAY_HEADER = 20.dp
 
 @Composable
-private fun WeeklyTimeline(weekStart: LocalDate, byDay: Map<LocalDate, List<Activity>>, onTap: (Activity) -> Unit) {
+private fun WeeklyTimeline(
+    weekStart: LocalDate,
+    byDay: Map<LocalDate, List<Activity>>,
+    data: AppData,
+    onTap: (Activity) -> Unit,
+    onMarkerTap: (AgendaItem) -> Unit,
+) {
     val g = LocalGrouped.current
     val density = LocalDensity.current
     // Start scrolled to 07:00, like iOS
@@ -362,7 +411,9 @@ private fun WeeklyTimeline(weekStart: LocalDate, byDay: Map<LocalDate, List<Acti
                 }
                 for (offset in 0 until 7) {
                     val day = weekStart.plusDays(offset.toLong())
-                    DayColumn(day, byDay[day] ?: emptyList(), onTap)
+                    // To Do tasks and Monthly Expenses are drawn as thin lines
+                    val markers = Agenda.forDay(data, day).filter { it.kind != AgendaKind.ACTIVITY }
+                    DayColumn(day, byDay[day] ?: emptyList(), markers, onTap, onMarkerTap)
                     Spacer(Modifier.width(4.dp))
                 }
             }
@@ -371,7 +422,14 @@ private fun WeeklyTimeline(weekStart: LocalDate, byDay: Map<LocalDate, List<Acti
 }
 
 @Composable
-private fun DayColumn(day: LocalDate, items: List<Activity>, onTap: (Activity) -> Unit) {
+private fun DayColumn(
+    day: LocalDate,
+    items: List<Activity>,
+    markers: List<AgendaItem>,
+    onTap: (Activity) -> Unit,
+    onMarkerTap: (AgendaItem) -> Unit,
+) {
+    val g = LocalGrouped.current
     Column(Modifier.width(DAY_WIDTH)) {
         Text(
             day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + day.dayOfMonth,
@@ -419,6 +477,35 @@ private fun DayColumn(day: LocalDate, items: List<Activity>, onTap: (Activity) -
                         Text(a.name, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
                 }
+            }
+
+            // To Do / Monthly: a coloured line at the exact time with the title on it
+            markers.forEach { m ->
+                val minutes = m.time.hour * 60 + m.time.minute
+                val color = kindColor(m.kind)
+                Box(
+                    Modifier
+                        .offset(y = minutes.dp)
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(if (m.done) color.copy(alpha = 0.4f) else color),
+                )
+                Text(
+                    (if (m.done) "✓ " else "") + m.title,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (m.done) g.secondaryText else color,
+                    textDecoration = if (m.done) TextDecoration.LineThrough else null,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .offset(y = (minutes - 15).coerceAtLeast(0).dp)
+                        .padding(start = 2.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(g.card.copy(alpha = 0.85f))
+                        .clickable { onMarkerTap(m) }
+                        .padding(horizontal = 3.dp),
+                )
             }
         }
     }

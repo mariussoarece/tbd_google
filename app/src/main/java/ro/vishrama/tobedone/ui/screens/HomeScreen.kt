@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -30,9 +31,9 @@ import androidx.compose.material.icons.filled.ShoppingBasket
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,23 +43,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ro.vishrama.tobedone.R
+import ro.vishrama.tobedone.data.Agenda
+import ro.vishrama.tobedone.data.AgendaItem
+import ro.vishrama.tobedone.data.AgendaKind
 import ro.vishrama.tobedone.data.AppStore
+import ro.vishrama.tobedone.ui.CheckCircle
 import ro.vishrama.tobedone.ui.GroupCard
 import ro.vishrama.tobedone.ui.IconTile
 import ro.vishrama.tobedone.ui.RowDivider
 import ro.vishrama.tobedone.ui.Screen
 import ro.vishrama.tobedone.ui.compactNumber
+import ro.vishrama.tobedone.ui.formatTime
+import ro.vishrama.tobedone.ui.money
 import ro.vishrama.tobedone.ui.theme.IOS
 import ro.vishrama.tobedone.ui.theme.LocalGrouped
 import java.time.LocalDate
@@ -78,13 +85,10 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
 
     // ---- numbers (same rules as iOS HomeView) ----
     val openTasks = data.tasks.count { !it.isCompleted && it.dueAt < endOfToday }
-    val todayTasks = data.tasks.filter { AppStore.dayOf(it.dueAt) == today }
-    val todayActivities = data.activities.filter { AppStore.dayOf(it.date) == today }
-    val activitiesLeft = todayActivities.count { !it.isCompleted }
-    val todayTotal = todayTasks.size + todayActivities.size
-    val todayDone = todayTasks.count { it.isCompleted } + todayActivities.count { it.isCompleted }
-    val progress = if (todayTotal > 0) todayDone.toFloat() / todayTotal else 0f
-    val toBuy = data.shoppingItems.count { !it.isCompleted } + data.groceryItems.count { !it.isBought }
+    val activitiesLeft = data.activities.count { !it.isCompleted && AppStore.dayOf(it.date) == today }
+
+    // Everything scheduled today, by time: To Do, Monthly Expenses, Daily Routine
+    val agenda = Agenda.forDay(data, today)
 
     val monthlyText = if (data.monthlyTasks.isEmpty()) null
     else "${compactNumber(data.monthlyTasks.sumOf { it.price })} ${settings.currency}"
@@ -136,32 +140,48 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
             }
         }
 
-        // Today card
+        // Today card: today's To Do tasks, Monthly Expenses and Daily Routine, by time
         item {
             GroupCard {
-                Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Today", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        if (todayTotal > 0) {
-                            Text("${(progress * 100).roundToInt()}%", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.Blue)
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(IOS.Blue.copy(alpha = 0.15f))
+                                .clickable { onOpen(Screen.WEEK) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.ViewWeek, contentDescription = null, tint = IOS.Blue, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Weekly view", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = IOS.Blue)
                         }
                     }
-                    if (todayTotal > 0) {
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth().height(4.dp),
-                            color = IOS.Blue,
-                            trackColor = g.fill,
-                            strokeCap = StrokeCap.Round,
-                            drawStopIndicator = {},
-                        )
+                    Spacer(Modifier.height(8.dp))
+                    if (agenda.isEmpty()) {
+                        Text("Nothing planned for today.", fontSize = 15.sp, color = g.secondaryText,
+                            modifier = Modifier.padding(vertical = 6.dp))
                     } else {
-                        Text("Nothing planned for today.", fontSize = 15.sp, color = g.secondaryText)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Stat(openTasks, "tasks due")
-                        Stat(activitiesLeft, "activities left")
-                        Stat(toBuy, "to buy")
+                        agenda.forEach { a ->
+                            TodayRow(
+                                item = a,
+                                currency = settings.currency,
+                                onToggle = when (a.kind) {
+                                    AgendaKind.TASK -> ({ store.toggleTask(a.id) })
+                                    AgendaKind.ACTIVITY -> ({ store.toggleActivity(a.id) })
+                                    AgendaKind.MONTHLY -> null
+                                },
+                                onOpen = {
+                                    onOpen(when (a.kind) {
+                                        AgendaKind.TASK -> Screen.TODO
+                                        AgendaKind.MONTHLY -> Screen.MONTHLY
+                                        AgendaKind.ACTIVITY -> Screen.ROUTINE
+                                    })
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -212,6 +232,45 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
     }
 }
 
+/** Colour used for each kind of item (same colours as the Home rows). */
+fun kindColor(kind: AgendaKind): Color = when (kind) {
+    AgendaKind.TASK -> IOS.Blue
+    AgendaKind.MONTHLY -> IOS.Orange
+    AgendaKind.ACTIVITY -> IOS.Indigo
+}
+
+@Composable
+private fun TodayRow(item: AgendaItem, currency: String, onToggle: (() -> Unit)?, onOpen: () -> Unit) {
+    val g = LocalGrouped.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onOpen)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(formatTime(item.time), fontSize = 13.sp, color = g.secondaryText, modifier = Modifier.width(52.dp))
+        Box(Modifier.width(3.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(kindColor(item.kind)))
+        Column(Modifier.weight(1f)) {
+            Text(
+                item.title, fontSize = 16.sp, maxLines = 1,
+                textDecoration = if (item.done) TextDecoration.LineThrough else null,
+                color = if (item.done) g.secondaryText else MaterialTheme.colorScheme.onSurface,
+            )
+            val sub = when (item.kind) {
+                AgendaKind.TASK -> "To Do"
+                AgendaKind.MONTHLY -> "Monthly expense" + (item.price?.takeIf { it > 0 }?.let { " · ${money(it)} $currency" } ?: "")
+                AgendaKind.ACTIVITY -> "Daily Routine" + (if (item.durationMinutes > 0) " · ${item.durationMinutes} min" else "")
+            }
+            Text(sub, fontSize = 12.sp, color = g.secondaryText, maxLines = 1)
+        }
+        if (onToggle != null) CheckCircle(item.done, onToggle)
+    }
+}
+
+@Suppress("unused")
 @Composable
 private fun Stat(value: Int, label: String) {
     val g = LocalGrouped.current

@@ -37,11 +37,17 @@ data class ShoppingItem(
     val completedAt: Long? = null,
 )
 
-/** Monthly Expenses (iOS MonthlyTaskModel) */
+/**
+ * Monthly Expenses (iOS MonthlyTaskModel). Repeats every month on [dayOfMonth]
+ * (1–28, so it exists in every month) at [hour]:[minute]. Older items have no day.
+ */
 data class MonthlyTask(
     val id: String = newId(),
     val title: String,
     val price: Double = 0.0,
+    val dayOfMonth: Int? = null,
+    val hour: Int = 10,
+    val minute: Int = 0,
 )
 
 /** iOS GroceryItemModel */

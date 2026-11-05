@@ -21,6 +21,12 @@ activities left, things to buy) and three groups, each opening its own screen:
 | GROW | **Confidence** | Rate 1–10 with an optional note, 30-day chart, 7/30-day averages, best/worst, streak. Daily Routine scores are added automatically. |
 | GROW | **Focus Test** | Red-dot test (tap when you blink), best/last result, progress chart, history. |
 
+**New in 2.1**
+- **Monthly Expenses** have a day of the month (1–28) and a time (default 10:00), with a reminder every month. Tap an expense to edit it.
+- The **Today** card lists everything scheduled today – To Do tasks, Monthly Expenses and Daily Routine – by time, with a **Weekly view** button.
+- The **weekly view** also shows To Do tasks (blue) and Monthly Expenses (orange) as a thin line with the title.
+- **Home-screen widget** "ToBeDone – Today": today's items by time and a **+** that opens To Do to add a task.
+
 **Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),
 daily summary notification (default 21:00) and activity-start notifications.
 
@@ -49,7 +55,7 @@ play-store/icon-512.png    the 512×512 icon Play Console asks for
 ```
 
 Package name / application ID: `ro.vishrama.tobedone` (same as the iOS bundle ID).
-Version: `versionName 2.0`, `versionCode 2`. Target SDK 36 (Android 16), which Google Play
+Version: `versionName 2.1`, `versionCode 4`. Target SDK 36 (Android 16), which Google Play
 requires for new apps and updates; min SDK 26 (Android 8.0).
 
 ## 1. Open and run it

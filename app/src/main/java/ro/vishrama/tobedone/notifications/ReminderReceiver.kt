@@ -44,6 +44,16 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            ReminderScheduler.KIND_MONTHLY -> {
+                val m = data.monthlyTasks.firstOrNull { it.id == id }
+                if (m != null) {
+                    val currency = AppStore.get(context).settings.value.currency
+                    val amount = if (m.price > 0) " (" + String.format("%.2f", m.price) + " $currency)" else ""
+                    show(context, ReminderScheduler.CHANNEL_TASKS, "monthly:$id",
+                        "Monthly expense", "${m.title}$amount is due today.")
+                }
+            }
+
             ReminderScheduler.KIND_SUMMARY -> {
                 val today = LocalDate.now(AppStore.zone())
                 val endOfToday = today.plusDays(1).atStartOfDay(AppStore.zone()).toInstant().toEpochMilli()

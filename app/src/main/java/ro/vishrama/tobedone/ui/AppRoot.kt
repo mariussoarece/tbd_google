@@ -1,6 +1,7 @@
 package ro.vishrama.tobedone.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -19,14 +20,22 @@ import ro.vishrama.tobedone.ui.screens.SettingsScreen
 import ro.vishrama.tobedone.ui.screens.ShoppingScreen
 import ro.vishrama.tobedone.ui.screens.TodoScreen
 
-enum class Screen { HOME, TODO, MONTHLY, PROJECTS, SHOPPING, GROCERY, ROUTINE, CONFIDENCE, FOCUS, SETTINGS }
+enum class Screen { HOME, TODO, MONTHLY, PROJECTS, SHOPPING, GROCERY, ROUTINE, WEEK, CONFIDENCE, FOCUS, SETTINGS }
 
 /** Home screen with a list of sections, each opening its own screen (iOS NavigationStack). */
 @Composable
-fun AppRoot(store: AppStore) {
+fun AppRoot(store: AppStore, requested: Screen? = null, onRequestHandled: () -> Unit = {}) {
     val settings by store.settings.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val back = { screen = Screen.HOME }
+
+    // Opened from the widget (e.g. the + button opens To Do)
+    LaunchedEffect(requested) {
+        if (requested != null) {
+            screen = requested
+            onRequestHandled()
+        }
+    }
 
     if (!settings.hasSeenIntro) {
         IntroFlow(store)
@@ -41,6 +50,7 @@ fun AppRoot(store: AppStore) {
         Screen.SHOPPING -> ShoppingScreen(store, back)
         Screen.GROCERY -> GroceryScreen(store, back)
         Screen.ROUTINE -> DailyRoutineScreen(store, back)
+        Screen.WEEK -> DailyRoutineScreen(store, back, startWeekly = true)
         Screen.CONFIDENCE -> ConfidenceScreen(store, back)
         Screen.FOCUS -> FocusTestScreen(store, back)
         Screen.SETTINGS -> SettingsScreen(store, back)

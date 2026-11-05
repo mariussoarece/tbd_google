@@ -47,6 +47,7 @@ object ExportImport {
             }))
             Kind.MONTHLY -> o.put("monthlyTasks", JSONArray(data.monthlyTasks.map {
                 JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
+                    .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
             }))
             Kind.PROJECTS -> o.put("tasksWithSubtasks", JSONArray(data.projects.filter { !it.isCompleted }.map { p ->
                 JSONObject().put("id", p.id).put("title", p.title).put("isCompleted", false)
@@ -98,7 +99,13 @@ object ExportImport {
                 )
             },
             monthlyTasks = o.objects("monthlyTasks").map {
-                MonthlyTask(title = it.getString("title"), price = it.optDouble("price", 0.0))
+                MonthlyTask(
+                    title = it.getString("title"),
+                    price = it.optDouble("price", 0.0),
+                    dayOfMonth = it.optIntOrNull("dayOfMonth")?.coerceIn(1, 28),
+                    hour = it.optInt("hour", 10),
+                    minute = it.optInt("minute", 0),
+                )
             },
             projects = (o.objects("tasksWithSubtasks") + o.objects("othertasks")).map { p ->
                 Project(

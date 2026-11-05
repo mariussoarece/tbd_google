@@ -16,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -28,8 +29,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ExportImport
+import ro.vishrama.tobedone.data.MonthlyTask
 import ro.vishrama.tobedone.data.Priority
 import ro.vishrama.tobedone.ui.AddButtonRow
+import ro.vishrama.tobedone.ui.Chip
 import ro.vishrama.tobedone.ui.DateTimeRow
 import ro.vishrama.tobedone.ui.DetailScreen
 import ro.vishrama.tobedone.ui.ExportImportButtons
@@ -37,9 +40,13 @@ import ro.vishrama.tobedone.ui.FieldRow
 import ro.vishrama.tobedone.ui.GroupCard
 import ro.vishrama.tobedone.ui.GroupRow
 import ro.vishrama.tobedone.ui.PriorityBadge
+import ro.vishrama.tobedone.ui.PickerRow
 import ro.vishrama.tobedone.ui.PriorityRow
 import ro.vishrama.tobedone.ui.RowDivider
+import ro.vishrama.tobedone.ui.SectionFooter
 import ro.vishrama.tobedone.ui.SectionHeader
+import ro.vishrama.tobedone.ui.TimePickDialog
+import ro.vishrama.tobedone.ui.formatTime
 import ro.vishrama.tobedone.ui.formatDateTime
 import ro.vishrama.tobedone.ui.groupedList
 import ro.vishrama.tobedone.ui.money
@@ -50,6 +57,8 @@ import ro.vishrama.tobedone.ui.theme.LocalGrouped
 import ro.vishrama.tobedone.ui.toLocalDateTime
 import ro.vishrama.tobedone.ui.toMillis
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Date
 import java.util.Locale
 
@@ -131,15 +140,27 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     val g = LocalGrouped.current
     val cur = settings.currency
 
+    val todayDay = LocalDate.now(AppStore.zone()).dayOfMonth.coerceAtMost(28)
     var title by rememberSaveable { mutableStateOf("") }
     var price by rememberSaveable { mutableStateOf("") }
+    var day by rememberSaveable { mutableIntStateOf(todayDay) }
+    var hour by rememberSaveable { mutableIntStateOf(10) }      // default 10:00
+    var minute by rememberSaveable { mutableIntStateOf(0) }
+    var pickTime by rememberSaveable { mutableStateOf(false) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun add() {
         if (title.isBlank()) return
-        store.addMonthlyTask(title, parsePrice(price) ?: 0.0)
+        store.addMonthlyTask(title, parsePrice(price) ?: 0.0, day, hour, minute)
         title = ""
         price = ""
+        day = todayDay
+        hour = 10
+        minute = 0
     }
+
+    // Sorted by day of the month, then time; items without a day at the end
+    val sorted = data.monthlyTasks.sortedWith(compareBy({ it.dayOfMonth ?: 99 }, { it.hour * 60 + it.minute }))
 
     DetailScreen("Monthly Expenses", IOS.Orange, onBack) {
         item { SectionHeader("Add Monthly Expense") }
@@ -149,14 +170,31 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
                 RowDivider()
                 FieldRow(price, { price = it }, "Price ($cur)", decimal = true, onDone = ::add)
                 RowDivider()
+                PickerRow("Day of month", day, (1..28).toList(), { "$it" }) { day = it }
+                RowDivider()
+                GroupRow {
+                    Text("Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Chip(formatTime(LocalTime.of(hour, minute))) { pickTime = true }
+                }
+                RowDivider()
                 AddButtonRow("Add", enabled = title.isNotBlank(), onClick = ::add)
             }
         }
+        item {
+            SectionFooter("You get a reminder every month on this day and time. Days go up to 28 so the reminder comes in every month.")
+        }
 
-        item { SectionHeader("Monthly Expenses - Swipe to delete") }
-        groupedList(data.monthlyTasks, { it.id }, emptyText = "No monthly expenses yet.", onDelete = { store.deleteMonthlyTask(it.id) }) { m ->
-            GroupRow {
-                Text(m.title, fontSize = 17.sp, modifier = Modifier.weight(1f))
+        item { SectionHeader("Monthly Expenses - Tap to edit, swipe to delete") }
+        groupedList(sorted, { it.id }, emptyText = "No monthly expenses yet.", onDelete = { store.deleteMonthlyTask(it.id) }) { m ->
+            GroupRow(onClick = { editingId = m.id }) {
+                Column(Modifier.weight(1f)) {
+                    Text(m.title, fontSize = 17.sp)
+                    Text(
+                        m.dayOfMonth?.let { "Every month on day $it at ${formatTime(LocalTime.of(m.hour, m.minute))}" }
+                            ?: "No day set – tap to add one",
+                        fontSize = 12.sp, color = g.secondaryText,
+                    )
+                }
                 Text("${money(m.price)} $cur", fontSize = 17.sp, color = g.secondaryText)
             }
         }
@@ -172,6 +210,61 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
         }
 
         item { ExportImportButtons(io, "Expenses") }
+    }
+
+    if (pickTime) {
+        TimePickDialog(LocalTime.of(hour, minute), { pickTime = false }) { hour = it.hour; minute = it.minute }
+    }
+
+    data.monthlyTasks.firstOrNull { it.id == editingId }?.let { m ->
+        EditMonthlyDialog(m, cur, onDismiss = { editingId = null }) { t, p, d, h, min ->
+            store.updateMonthlyTask(m.id, t, p, d, h, min)
+            editingId = null
+        }
+    }
+}
+
+@Composable
+private fun EditMonthlyDialog(
+    m: MonthlyTask,
+    currency: String,
+    onDismiss: () -> Unit,
+    onSave: (String, Double, Int, Int, Int) -> Unit,
+) {
+    var title by rememberSaveable(m.id) { mutableStateOf(m.title) }
+    var price by rememberSaveable(m.id) { mutableStateOf(money(m.price)) }
+    var day by rememberSaveable(m.id) { mutableIntStateOf(m.dayOfMonth ?: LocalDate.now(AppStore.zone()).dayOfMonth.coerceAtMost(28)) }
+    var hour by rememberSaveable(m.id) { mutableIntStateOf(m.hour) }
+    var minute by rememberSaveable(m.id) { mutableIntStateOf(m.minute) }
+    var pickTime by rememberSaveable { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Monthly Expense") },
+        text = {
+            GroupCard {
+                FieldRow(title, { title = it }, "Title")
+                RowDivider()
+                FieldRow(price, { price = it }, "Price ($currency)", decimal = true)
+                RowDivider()
+                PickerRow("Day of month", day, (1..28).toList(), { "$it" }) { day = it }
+                RowDivider()
+                GroupRow {
+                    Text("Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Chip(formatTime(LocalTime.of(hour, minute))) { pickTime = true }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = title.isNotBlank(), onClick = { onSave(title, parsePrice(price) ?: 0.0, day, hour, minute) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    if (pickTime) {
+        TimePickDialog(LocalTime.of(hour, minute), { pickTime = false }) { hour = it.hour; minute = it.minute }
     }
 }
 

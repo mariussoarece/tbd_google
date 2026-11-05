@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.json.JSONObject
 import ro.vishrama.tobedone.notifications.ReminderScheduler
+import ro.vishrama.tobedone.widget.TodayWidget
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
@@ -90,11 +91,26 @@ class AppStore private constructor(private val appContext: Context) {
 
     // ================= Monthly =================
 
-    fun addMonthlyTask(title: String, price: Double) = mutate {
-        it.copy(monthlyTasks = it.monthlyTasks + MonthlyTask(title = title.trim(), price = price))
+    fun addMonthlyTask(title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int) = mutate(refresh = true) {
+        it.copy(monthlyTasks = it.monthlyTasks + MonthlyTask(
+            title = title.trim(), price = price,
+            dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
+        ))
     }
 
-    fun deleteMonthlyTask(id: String) = mutate { d -> d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id }) }
+    fun updateMonthlyTask(id: String, title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int) =
+        mutate(refresh = true) { d ->
+            d.copy(monthlyTasks = d.monthlyTasks.map {
+                if (it.id == id) it.copy(
+                    title = title.trim(), price = price,
+                    dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
+                ) else it
+            })
+        }
+
+    fun deleteMonthlyTask(id: String) = mutate(refresh = true) { d ->
+        d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id })
+    }
 
     // ================= Grocery =================
 
@@ -246,6 +262,7 @@ class AppStore private constructor(private val appContext: Context) {
         val snapshot = _data.value
         writer.execute { save(snapshot) }
         if (refresh) ReminderScheduler.refresh(appContext, snapshot, _settings.value)
+        TodayWidget.requestUpdate(appContext)
     }
 
     private fun updateSettings(refresh: Boolean = false, block: (Settings) -> Settings) {
@@ -262,6 +279,7 @@ class AppStore private constructor(private val appContext: Context) {
             .putInt(K_MINUTE, s.reminderMinute)
             .apply()
         if (refresh) ReminderScheduler.refresh(appContext, _data.value, s)
+        TodayWidget.requestUpdate(appContext)
     }
 
     private fun loadSettings() = Settings(
@@ -319,5 +337,6 @@ class AppStore private constructor(private val appContext: Context) {
 
         fun zone(): ZoneId = ZoneId.systemDefault()
         fun dayOf(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(zone()).toLocalDate()
+        fun timeOf(millis: Long): java.time.LocalTime = Instant.ofEpochMilli(millis).atZone(zone()).toLocalTime()
     }
 }

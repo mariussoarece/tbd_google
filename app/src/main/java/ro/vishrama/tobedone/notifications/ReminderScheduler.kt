@@ -20,6 +20,7 @@ import java.time.ZonedDateTime
  *  • Daily summary (default 21:00, set in Settings): lists that day's unfinished
  *    tasks and Daily Routine activities. Nothing is sent if everything is done.
  *  • Activity start: a reminder when each Daily Routine activity begins.
+ *  • Monthly expense: a reminder every month on its day (1–28) and time.
  *
  * Uses normal (inexact) alarms so the app doesn't need the restricted
  * "exact alarm" permission; a reminder can arrive a few minutes late.
@@ -33,6 +34,7 @@ object ReminderScheduler {
     const val KIND_TASK = "task"
     const val KIND_SUMMARY = "summary"
     const val KIND_ACTIVITY = "activity"
+    const val KIND_MONTHLY = "monthly"
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
 
@@ -88,6 +90,12 @@ object ReminderScheduler {
                 .forEach { wanted["$KIND_ACTIVITY:${it.id}"] = it.date }
         }
 
+        // Monthly expenses: the next time their day + time comes round
+        data.monthlyTasks.forEach { m ->
+            val day = m.dayOfMonth ?: return@forEach
+            wanted["$KIND_MONTHLY:${m.id}"] = nextMonthly(day, m.hour, m.minute, now)
+        }
+
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previous = prefs.getStringSet(KEY_SCHEDULED, emptySet()) ?: emptySet()
@@ -108,6 +116,15 @@ object ReminderScheduler {
         val time = LocalTime.of(settings.reminderHour, settings.reminderMinute)
         var at: ZonedDateTime = LocalDate.now(zone).atTime(time).atZone(zone)
         if (at.toInstant().toEpochMilli() <= now) at = at.plusDays(1)
+        return at.toInstant().toEpochMilli()
+    }
+
+    /** Next [day] of a month at [hour]:[minute] that is still in the future. */
+    fun nextMonthly(day: Int, hour: Int, minute: Int, now: Long): Long {
+        val zone = AppStore.zone()
+        val today = LocalDate.now(zone)
+        var at = today.withDayOfMonth(day.coerceIn(1, 28)).atTime(hour, minute).atZone(zone)
+        if (at.toInstant().toEpochMilli() <= now) at = at.plusMonths(1)
         return at.toInstant().toEpochMilli()
     }
 

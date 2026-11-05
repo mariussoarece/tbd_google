@@ -19,6 +19,7 @@ internal object Storage {
         })
         put("monthlyTasks", arr(d.monthlyTasks) {
             JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
+                .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
         })
         put("groceryItems", arr(d.groceryItems) {
             JSONObject().put("id", it.id).put("name", it.name).put("isBought", it.isBought)
@@ -66,7 +67,14 @@ internal object Storage {
             )
         },
         monthlyTasks = o.objects("monthlyTasks").map {
-            MonthlyTask(it.getString("id"), it.getString("title"), it.optDouble("price", 0.0))
+            MonthlyTask(
+                id = it.getString("id"),
+                title = it.getString("title"),
+                price = it.optDouble("price", 0.0),
+                dayOfMonth = it.optIntOrNull("dayOfMonth"),
+                hour = it.optInt("hour", 10),
+                minute = it.optInt("minute", 0),
+            )
         },
         groceryItems = o.objects("groceryItems").map {
             GroceryItem(it.getString("id"), it.getString("name"), it.optBoolean("isBought"))
@@ -119,6 +127,9 @@ internal fun JSONObject.objects(key: String): List<JSONObject> {
 
 internal fun JSONObject.optStringOrNull(key: String): String? =
     if (has(key) && !isNull(key)) getString(key) else null
+
+internal fun JSONObject.optIntOrNull(key: String): Int? =
+    if (has(key) && !isNull(key)) getInt(key) else null
 
 internal fun JSONObject.optLongOrNull(key: String): Long? =
     if (has(key) && !isNull(key)) getLong(key) else null

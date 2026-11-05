@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ToBeDone</string>
+    <string name="widget_name">ToBeDone – Today</string>
+    <string name="widget_description">Today\'s tasks, monthly expenses and routine, with a + to add a task</string>
 </resources>
