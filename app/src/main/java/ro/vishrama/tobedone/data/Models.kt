@@ -24,6 +24,8 @@ data class DueTask(
     val dueAt: Long,
     val priority: Priority,
     val isCompleted: Boolean = false,
+    /** Extra reminder this many minutes before the due time (null = none). */
+    val reminderMinutes: Int? = null,
 )
 
 /** iOS ShoppingItemModel */
@@ -48,8 +50,6 @@ data class MonthlyTask(
     val dayOfMonth: Int? = null,
     val hour: Int = 10,
     val minute: Int = 0,
-    /** Extra reminder this many minutes before each payment (null = none). */
-    val reminderMinutes: Int? = null,
 )
 
 /** iOS GroceryItemModel */

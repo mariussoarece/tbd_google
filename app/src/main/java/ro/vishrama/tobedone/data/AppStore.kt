@@ -46,9 +46,12 @@ class AppStore private constructor(private val appContext: Context) {
 
     // ================= To Do =================
 
-    fun addTask(title: String, dueAt: Long, priority: Priority) = mutate(refresh = true) {
+    fun addTask(title: String, dueAt: Long, priority: Priority, reminderMinutes: Int? = null) = mutate(refresh = true) {
         // Snap to the start of the minute, like iOS
-        val t = DueTask(title = title.trim(), dueAt = dueAt / 60_000L * 60_000L, priority = priority)
+        val t = DueTask(
+            title = title.trim(), dueAt = dueAt / 60_000L * 60_000L, priority = priority,
+            reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
+        )
         it.copy(tasks = it.tasks + t)
     }
 
@@ -91,26 +94,22 @@ class AppStore private constructor(private val appContext: Context) {
 
     // ================= Monthly =================
 
-    fun addMonthlyTask(title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int, reminderMinutes: Int? = null) =
-        mutate(refresh = true) {
-            it.copy(monthlyTasks = it.monthlyTasks + MonthlyTask(
-                title = title.trim(), price = price,
-                dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
-                reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
-            ))
-        }
-
-    fun updateMonthlyTask(
-        id: String, title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int, reminderMinutes: Int? = null,
-    ) = mutate(refresh = true) { d ->
-        d.copy(monthlyTasks = d.monthlyTasks.map {
-            if (it.id == id) it.copy(
-                title = title.trim(), price = price,
-                dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
-                reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
-            ) else it
-        })
+    fun addMonthlyTask(title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int) = mutate(refresh = true) {
+        it.copy(monthlyTasks = it.monthlyTasks + MonthlyTask(
+            title = title.trim(), price = price,
+            dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
+        ))
     }
+
+    fun updateMonthlyTask(id: String, title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int) =
+        mutate(refresh = true) { d ->
+            d.copy(monthlyTasks = d.monthlyTasks.map {
+                if (it.id == id) it.copy(
+                    title = title.trim(), price = price,
+                    dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
+                ) else it
+            })
+        }
 
     fun deleteMonthlyTask(id: String) = mutate(refresh = true) { d ->
         d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id })

@@ -11,6 +11,7 @@ internal object Storage {
         put("tasks", arr(d.tasks) {
             JSONObject().put("id", it.id).put("title", it.title).put("dueAt", it.dueAt)
                 .put("priority", it.priority.name).put("isCompleted", it.isCompleted)
+                .putOpt("reminderMinutes", it.reminderMinutes)
         })
         put("shoppingItems", arr(d.shoppingItems) {
             JSONObject().put("id", it.id).put("name", it.name).put("price", it.price)
@@ -20,7 +21,6 @@ internal object Storage {
         put("monthlyTasks", arr(d.monthlyTasks) {
             JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
                 .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
-                .putOpt("reminderMinutes", it.reminderMinutes)
         })
         put("groceryItems", arr(d.groceryItems) {
             JSONObject().put("id", it.id).put("name", it.name).put("isBought", it.isBought)
@@ -55,6 +55,7 @@ internal object Storage {
                 dueAt = it.getLong("dueAt"),
                 priority = Priority.parse(it.optString("priority")),
                 isCompleted = it.optBoolean("isCompleted"),
+                reminderMinutes = it.optIntOrNull("reminderMinutes"),
             )
         },
         shoppingItems = o.objects("shoppingItems").map {
@@ -76,7 +77,6 @@ internal object Storage {
                 dayOfMonth = it.optIntOrNull("dayOfMonth"),
                 hour = it.optInt("hour", 10),
                 minute = it.optInt("minute", 0),
-                reminderMinutes = it.optIntOrNull("reminderMinutes"),
             )
         },
         groceryItems = o.objects("groceryItems").map {

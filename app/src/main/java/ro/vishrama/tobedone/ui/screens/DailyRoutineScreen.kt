@@ -58,6 +58,7 @@ import ro.vishrama.tobedone.data.AgendaKind
 import ro.vishrama.tobedone.data.AppData
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ExportImport
+import ro.vishrama.tobedone.data.describeMinutes
 import ro.vishrama.tobedone.data.newId
 import ro.vishrama.tobedone.ui.CheckCircle
 import ro.vishrama.tobedone.ui.DateTimeRow
@@ -290,6 +291,9 @@ private fun ActivityRow(a: Activity, onToggle: () -> Unit) {
                 textDecoration = if (a.isCompleted) TextDecoration.LineThrough else null,
             )
             if (a.details.isNotBlank()) Text(a.details, fontSize = 12.sp, color = g.secondaryText)
+            a.reminderMinutes?.let {
+                Text("🔔 ${describeMinutes(it.toLong())} before", fontSize = 12.sp, color = g.secondaryText)
+            }
         }
         if (a.durationMinutes > 0) Text("${a.durationMinutes}m", fontSize = 16.sp, color = g.secondaryText)
     }

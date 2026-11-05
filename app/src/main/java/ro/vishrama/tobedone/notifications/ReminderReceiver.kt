@@ -55,14 +55,12 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
-            ReminderScheduler.KIND_MONTHLY_EARLY -> {
-                val m = data.monthlyTasks.firstOrNull { it.id == id }
-                val day = m?.dayOfMonth
-                if (m != null && day != null) {
-                    val now = System.currentTimeMillis()
-                    val start = ReminderScheduler.nextMonthly(day, m.hour, m.minute, now)
-                    show(context, ReminderScheduler.CHANNEL_TASKS, "monthlyearly:$id",
-                        "Upcoming payment", "${m.title} is due in ${describeMinutes(minutesUntil(start, now))}.")
+            ReminderScheduler.KIND_TASK_EARLY -> {
+                val t = data.tasks.firstOrNull { it.id == id }
+                val now = System.currentTimeMillis()
+                if (t != null && !t.isCompleted && t.dueAt > now) {
+                    show(context, ReminderScheduler.CHANNEL_TASKS, "taskearly:$id",
+                        "Coming up", "${t.title} is starting in ${describeMinutes(minutesUntil(t.dueAt, now))}.")
                 }
             }
 

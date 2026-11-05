@@ -21,8 +21,8 @@ import java.time.ZonedDateTime
  *    tasks and Daily Routine activities. Nothing is sent if everything is done.
  *  • Activity start: a reminder when each Daily Routine activity begins.
  *  • Monthly expense: a reminder every month on its day (1–28) and time.
- *  • Optional early reminder for Monthly expenses and activities, set when
- *    creating them ("… is starting in 2 days and 30 min").
+ *  • Optional early reminder for To Do tasks and Daily Routine activities,
+ *    set when creating them ("… is starting in 2 days and 30 min").
  *
  * Uses normal (inexact) alarms so the app doesn't need the restricted
  * "exact alarm" permission; a reminder can arrive a few minutes late.
@@ -37,7 +37,7 @@ object ReminderScheduler {
     const val KIND_SUMMARY = "summary"
     const val KIND_ACTIVITY = "activity"
     const val KIND_MONTHLY = "monthly"
-    const val KIND_MONTHLY_EARLY = "monthlyearly"
+    const val KIND_TASK_EARLY = "taskearly"
     const val KIND_ACTIVITY_EARLY = "activityearly"
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
@@ -102,13 +102,13 @@ object ReminderScheduler {
         }
 
         // Early reminders chosen by the user ("remind me before")
-        data.monthlyTasks.forEach { m ->
-            val day = m.dayOfMonth ?: return@forEach
-            val before = (m.reminderMinutes ?: return@forEach) * 60_000L
-            // The next payment whose reminder time is still ahead
-            val start = nextMonthly(day, m.hour, m.minute, now + before)
-            wanted["$KIND_MONTHLY_EARLY:${m.id}"] = start - before
-        }
+        data.tasks
+            .filter { !it.isCompleted && it.reminderMinutes != null }
+            .map { it to it.dueAt - it.reminderMinutes!! * 60_000L }
+            .filter { (_, at) -> at > now }
+            .sortedBy { it.second }
+            .take(MAX_TASK_ALARMS)
+            .forEach { (t, at) -> wanted["$KIND_TASK_EARLY:${t.id}"] = at }
         data.activities
             .filter { !it.isCompleted && it.reminderMinutes != null }
             .map { it to it.date - it.reminderMinutes!! * 60_000L }

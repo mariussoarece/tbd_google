@@ -39,6 +39,7 @@ object ExportImport {
             Kind.TASKS -> o.put("tasks", JSONArray(data.tasks.filter { !it.isCompleted }.map {
                 JSONObject().put("id", it.id).put("title", it.title).put("dueDate", toApple(it.dueAt))
                     .put("priority", it.priority.label).put("isCompleted", it.isCompleted)
+                    .putOpt("reminderMinutes", it.reminderMinutes)
             }))
             Kind.SHOPPING -> o.put("shoppingItems", JSONArray(data.shoppingItems.filter { !it.isCompleted }.map {
                 JSONObject().put("id", it.id).put("name", it.name).put("price", it.price)
@@ -48,7 +49,6 @@ object ExportImport {
             Kind.MONTHLY -> o.put("monthlyTasks", JSONArray(data.monthlyTasks.map {
                 JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
                     .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
-                    .putOpt("reminderMinutes", it.reminderMinutes)
             }))
             Kind.PROJECTS -> o.put("tasksWithSubtasks", JSONArray(data.projects.filter { !it.isCompleted }.map { p ->
                 JSONObject().put("id", p.id).put("title", p.title).put("isCompleted", false)
@@ -88,6 +88,7 @@ object ExportImport {
                     dueAt = fromApple(it.getDouble("dueDate")),
                     priority = Priority.parse(it.optString("priority")),
                     isCompleted = it.optBoolean("isCompleted"),
+                    reminderMinutes = it.optIntOrNull("reminderMinutes"),
                 )
             },
             shoppingItems = (o.objects("shoppingItems") + o.objects("shoppingtasks")).map {
@@ -107,7 +108,6 @@ object ExportImport {
                     dayOfMonth = it.optIntOrNull("dayOfMonth")?.coerceIn(1, 28),
                     hour = it.optInt("hour", 10),
                     minute = it.optInt("minute", 0),
-                    reminderMinutes = it.optIntOrNull("reminderMinutes"),
                 )
             },
             projects = (o.objects("tasksWithSubtasks") + o.objects("othertasks")).map { p ->
