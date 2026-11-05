@@ -49,6 +49,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ExportImport
 import ro.vishrama.tobedone.data.Priority
+import ro.vishrama.tobedone.data.describeMinutes
 import ro.vishrama.tobedone.ui.theme.IOS
 import ro.vishrama.tobedone.ui.theme.LocalGrouped
 import java.text.DecimalFormat
@@ -595,4 +598,46 @@ fun PriorityBadge(priority: Priority) {
             .background(IOS.Blue.copy(alpha = 0.1f))
             .padding(6.dp),
     )
+}
+
+// =====================================================================
+//  "Remind me before" rows (Monthly Expenses and Daily Routine)
+// =====================================================================
+
+/**
+ * A switch plus a date & time picker for an extra reminder before [start].
+ * The choice is kept as minutes before the start ([minutesBefore]), so it
+ * still fits when the start date or time changes, and for repeating items.
+ * Put these rows inside a [GroupCard], after a [RowDivider].
+ */
+@Composable
+fun ReminderRows(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    start: LocalDateTime,
+    minutesBefore: Int,
+    onMinutesBeforeChange: (Int) -> Unit,
+) {
+    val g = LocalGrouped.current
+    GroupRow {
+        Text("Remind me before", fontSize = 17.sp, modifier = Modifier.weight(1f))
+        Switch(
+            checked = enabled,
+            onCheckedChange = onEnabledChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = IOS.Green),
+        )
+    }
+    if (enabled) {
+        RowDivider()
+        DateTimeRow("Remind at", start.minusMinutes(minutesBefore.toLong()), { picked ->
+            onMinutesBeforeChange(java.time.Duration.between(picked, start).toMinutes().toInt())
+        })
+        GroupRow {
+            if (minutesBefore > 0) {
+                Text("${describeMinutes(minutesBefore.toLong())} before the start", fontSize = 13.sp, color = g.secondaryText)
+            } else {
+                Text("Choose a time before the start", fontSize = 13.sp, color = IOS.Red)
+            }
+        }
+    }
 }

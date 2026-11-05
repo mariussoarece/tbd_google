@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import ro.vishrama.tobedone.MainActivity
 import ro.vishrama.tobedone.R
 import ro.vishrama.tobedone.data.AppStore
+import ro.vishrama.tobedone.data.describeMinutes
 import java.time.LocalDate
 
 /** Shows a reminder when one of the alarms set by [ReminderScheduler] fires. */
@@ -54,6 +55,26 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            ReminderScheduler.KIND_MONTHLY_EARLY -> {
+                val m = data.monthlyTasks.firstOrNull { it.id == id }
+                val day = m?.dayOfMonth
+                if (m != null && day != null) {
+                    val now = System.currentTimeMillis()
+                    val start = ReminderScheduler.nextMonthly(day, m.hour, m.minute, now)
+                    show(context, ReminderScheduler.CHANNEL_TASKS, "monthlyearly:$id",
+                        "Upcoming payment", "${m.title} is due in ${describeMinutes(minutesUntil(start, now))}.")
+                }
+            }
+
+            ReminderScheduler.KIND_ACTIVITY_EARLY -> {
+                val a = data.activities.firstOrNull { it.id == id }
+                val now = System.currentTimeMillis()
+                if (a != null && !a.isCompleted && a.date > now) {
+                    show(context, ReminderScheduler.CHANNEL_ACTIVITY, "activityearly:$id",
+                        "Coming up", "${a.name} is starting in ${describeMinutes(minutesUntil(a.date, now))}.")
+                }
+            }
+
             ReminderScheduler.KIND_SUMMARY -> {
                 val today = LocalDate.now(AppStore.zone())
                 val endOfToday = today.plusDays(1).atStartOfDay(AppStore.zone()).toInstant().toEpochMilli()
@@ -80,6 +101,9 @@ class ReminderReceiver : BroadcastReceiver() {
         // Schedule the next daily summary, drop the alarm that just fired
         ReminderScheduler.refresh(context)
     }
+
+    /** Whole minutes until [start], rounded so 59.9 min shows as 60 min. */
+    private fun minutesUntil(start: Long, now: Long): Long = (start - now + 30_000L) / 60_000L
 
     private fun show(context: Context, channel: String, tag: String, title: String, text: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

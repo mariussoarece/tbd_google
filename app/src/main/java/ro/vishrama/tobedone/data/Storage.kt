@@ -20,6 +20,7 @@ internal object Storage {
         put("monthlyTasks", arr(d.monthlyTasks) {
             JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
                 .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
+                .putOpt("reminderMinutes", it.reminderMinutes)
         })
         put("groceryItems", arr(d.groceryItems) {
             JSONObject().put("id", it.id).put("name", it.name).put("isBought", it.isBought)
@@ -35,6 +36,7 @@ internal object Storage {
                 .put("details", it.details).put("durationMinutes", it.durationMinutes)
                 .put("isCompleted", it.isCompleted).putOpt("seriesId", it.seriesId)
                 .put("repeatsWeekly", it.repeatsWeekly).put("repeatWeeks", it.repeatWeeks)
+                .putOpt("reminderMinutes", it.reminderMinutes)
         })
         put("confidenceEntries", arr(d.confidenceEntries) {
             JSONObject().put("id", it.id).put("date", it.date).put("score", it.score)
@@ -74,6 +76,7 @@ internal object Storage {
                 dayOfMonth = it.optIntOrNull("dayOfMonth"),
                 hour = it.optInt("hour", 10),
                 minute = it.optInt("minute", 0),
+                reminderMinutes = it.optIntOrNull("reminderMinutes"),
             )
         },
         groceryItems = o.objects("groceryItems").map {
@@ -100,6 +103,7 @@ internal object Storage {
                 seriesId = it.optStringOrNull("seriesId"),
                 repeatsWeekly = it.optBoolean("repeatsWeekly"),
                 repeatWeeks = it.optInt("repeatWeeks", 0),
+                reminderMinutes = it.optIntOrNull("reminderMinutes"),
             )
         },
         confidenceEntries = o.objects("confidenceEntries").map {

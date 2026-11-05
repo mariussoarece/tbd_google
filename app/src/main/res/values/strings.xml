@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">ToBeDone</string>
     <string name="widget_name">ToBeDone – Today</string>
-    <string name="widget_description">Today\'s tasks, monthly expenses and routine, with a + to add a task</string>
+    <string name="widget_description">Today\'s tasks, monthly expenses and routine</string>
 </resources>

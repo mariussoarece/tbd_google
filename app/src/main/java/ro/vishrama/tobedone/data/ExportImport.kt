@@ -48,6 +48,7 @@ object ExportImport {
             Kind.MONTHLY -> o.put("monthlyTasks", JSONArray(data.monthlyTasks.map {
                 JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
                     .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
+                    .putOpt("reminderMinutes", it.reminderMinutes)
             }))
             Kind.PROJECTS -> o.put("tasksWithSubtasks", JSONArray(data.projects.filter { !it.isCompleted }.map { p ->
                 JSONObject().put("id", p.id).put("title", p.title).put("isCompleted", false)
@@ -65,6 +66,7 @@ object ExportImport {
             .put("details", it.details).put("durationMinutes", it.durationMinutes)
             .put("isCompleted", it.isCompleted).putOpt("seriesId", it.seriesId)
             .put("repeatsWeekly", it.repeatsWeekly).put("repeatWeeks", it.repeatWeeks)
+            .putOpt("reminderMinutes", it.reminderMinutes)
     })
 
     /** Everything that could be read from an import file. Older iOS key names are accepted too. */
@@ -105,6 +107,7 @@ object ExportImport {
                     dayOfMonth = it.optIntOrNull("dayOfMonth")?.coerceIn(1, 28),
                     hour = it.optInt("hour", 10),
                     minute = it.optInt("minute", 0),
+                    reminderMinutes = it.optIntOrNull("reminderMinutes"),
                 )
             },
             projects = (o.objects("tasksWithSubtasks") + o.objects("othertasks")).map { p ->
@@ -127,6 +130,7 @@ object ExportImport {
                     seriesId = it.optStringOrNull("seriesId"),
                     repeatsWeekly = it.optBoolean("repeatsWeekly"),
                     repeatWeeks = it.optInt("repeatWeeks", 0),
+                    reminderMinutes = it.optIntOrNull("reminderMinutes"),
                 )
             },
         )

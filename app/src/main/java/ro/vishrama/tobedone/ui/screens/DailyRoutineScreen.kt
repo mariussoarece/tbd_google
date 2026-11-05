@@ -67,6 +67,7 @@ import ro.vishrama.tobedone.ui.FieldRow
 import ro.vishrama.tobedone.ui.GroupCard
 import ro.vishrama.tobedone.ui.GroupRow
 import ro.vishrama.tobedone.ui.ProminentButton
+import ro.vishrama.tobedone.ui.ReminderRows
 import ro.vishrama.tobedone.ui.RowDivider
 import ro.vishrama.tobedone.ui.SectionHeader
 import ro.vishrama.tobedone.ui.Segmented
@@ -539,6 +540,8 @@ private fun AddActivityDialog(
     var name by rememberSaveable { mutableStateOf("") }
     var details by rememberSaveable { mutableStateOf("") }
     var duration by rememberSaveable { mutableIntStateOf(60) }
+    var remind by rememberSaveable { mutableStateOf(false) }
+    var remindBefore by rememberSaveable { mutableIntStateOf(30) }   // default: 30 min before
     var pending by remember { mutableStateOf<List<Activity>?>(null) }
 
     fun build(): List<Activity> {
@@ -554,6 +557,7 @@ private fun AddActivityDialog(
                 seriesId = series,
                 repeatsWeekly = repeatWeekly,
                 repeatWeeks = if (repeatWeekly) weeks else 0,
+                reminderMinutes = if (remind && remindBefore > 0) remindBefore else null,
             )
         }
     }
@@ -565,13 +569,14 @@ private fun AddActivityDialog(
                 .padding(16.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(g.background)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onDismiss) { Text("Cancel", color = IOS.Blue) }
                 Text("New Activity", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center)
-                ProminentButton("Save", enabled = name.isNotBlank()) {
+                ProminentButton("Save", enabled = name.isNotBlank() && (!remind || remindBefore > 0)) {
                     val items = build()
                     // If any occurrence overlaps, ask once for the whole set
                     if (items.any { n -> existing.any { it.overlaps(n) } }) {
@@ -600,6 +605,8 @@ private fun AddActivityDialog(
                         Stepper(onMinus = { weeks = (weeks - 1).coerceAtLeast(1) }, onPlus = { weeks = (weeks + 1).coerceAtMost(52) })
                     }
                 }
+                RowDivider()
+                ReminderRows(remind, { remind = it }, toLocalDateTime(date), remindBefore) { remindBefore = it }
             }
 
             SectionHeader("Activity")

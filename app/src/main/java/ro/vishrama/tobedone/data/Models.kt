@@ -48,6 +48,8 @@ data class MonthlyTask(
     val dayOfMonth: Int? = null,
     val hour: Int = 10,
     val minute: Int = 0,
+    /** Extra reminder this many minutes before each payment (null = none). */
+    val reminderMinutes: Int? = null,
 )
 
 /** iOS GroceryItemModel */
@@ -83,6 +85,8 @@ data class Activity(
     val seriesId: String? = null,
     val repeatsWeekly: Boolean = false,
     val repeatWeeks: Int = 0,
+    /** Extra reminder this many minutes before the start (null = none). */
+    val reminderMinutes: Int? = null,
 ) {
     val endMillis: Long get() = date + durationMinutes * 60_000L
 

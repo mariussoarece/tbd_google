@@ -1,6 +1,8 @@
 package ro.vishrama.tobedone.ui.screens
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,6 +32,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ExportImport
 import ro.vishrama.tobedone.data.MonthlyTask
+import ro.vishrama.tobedone.data.describeMinutes
+import ro.vishrama.tobedone.notifications.ReminderScheduler
 import ro.vishrama.tobedone.data.Priority
 import ro.vishrama.tobedone.ui.AddButtonRow
 import ro.vishrama.tobedone.ui.Chip
@@ -42,6 +46,7 @@ import ro.vishrama.tobedone.ui.GroupRow
 import ro.vishrama.tobedone.ui.PriorityBadge
 import ro.vishrama.tobedone.ui.PickerRow
 import ro.vishrama.tobedone.ui.PriorityRow
+import ro.vishrama.tobedone.ui.ReminderRows
 import ro.vishrama.tobedone.ui.RowDivider
 import ro.vishrama.tobedone.ui.SectionFooter
 import ro.vishrama.tobedone.ui.SectionHeader
@@ -58,6 +63,7 @@ import ro.vishrama.tobedone.ui.toLocalDateTime
 import ro.vishrama.tobedone.ui.toMillis
 import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.Date
 import java.util.Locale
@@ -148,15 +154,20 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     var minute by rememberSaveable { mutableIntStateOf(0) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var remind by rememberSaveable { mutableStateOf(false) }
+    var remindBefore by rememberSaveable { mutableIntStateOf(24 * 60) }   // default: 1 day before
+    val canAdd = title.isNotBlank() && (!remind || remindBefore > 0)
 
     fun add() {
-        if (title.isBlank()) return
-        store.addMonthlyTask(title, parsePrice(price) ?: 0.0, day, hour, minute)
+        if (!canAdd) return
+        store.addMonthlyTask(title, parsePrice(price) ?: 0.0, day, hour, minute, if (remind) remindBefore else null)
         title = ""
         price = ""
         day = todayDay
         hour = 10
         minute = 0
+        remind = false
+        remindBefore = 24 * 60
     }
 
     // Sorted by day of the month, then time; items without a day at the end
@@ -177,7 +188,9 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
                     Chip(formatTime(LocalTime.of(hour, minute))) { pickTime = true }
                 }
                 RowDivider()
-                AddButtonRow("Add", enabled = title.isNotBlank(), onClick = ::add)
+                ReminderRows(remind, { remind = it }, nextPayment(day, hour, minute), remindBefore) { remindBefore = it }
+                RowDivider()
+                AddButtonRow("Add", enabled = canAdd, onClick = ::add)
             }
         }
         item {
@@ -194,6 +207,9 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
                             ?: "No day set – tap to add one",
                         fontSize = 12.sp, color = g.secondaryText,
                     )
+                    m.reminderMinutes?.let {
+                        Text("🔔 ${describeMinutes(it.toLong())} before", fontSize = 12.sp, color = g.secondaryText)
+                    }
                 }
                 Text("${money(m.price)} $cur", fontSize = 17.sp, color = g.secondaryText)
             }
@@ -217,19 +233,23 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     }
 
     data.monthlyTasks.firstOrNull { it.id == editingId }?.let { m ->
-        EditMonthlyDialog(m, cur, onDismiss = { editingId = null }) { t, p, d, h, min ->
-            store.updateMonthlyTask(m.id, t, p, d, h, min)
+        EditMonthlyDialog(m, cur, onDismiss = { editingId = null }) { t, p, d, h, min, rem ->
+            store.updateMonthlyTask(m.id, t, p, d, h, min, rem)
             editingId = null
         }
     }
 }
+
+/** Date and time of the next payment on [day] at [hour]:[minute]. */
+private fun nextPayment(day: Int, hour: Int, minute: Int): LocalDateTime =
+    toLocalDateTime(ReminderScheduler.nextMonthly(day, hour, minute, System.currentTimeMillis()))
 
 @Composable
 private fun EditMonthlyDialog(
     m: MonthlyTask,
     currency: String,
     onDismiss: () -> Unit,
-    onSave: (String, Double, Int, Int, Int) -> Unit,
+    onSave: (String, Double, Int, Int, Int, Int?) -> Unit,
 ) {
     var title by rememberSaveable(m.id) { mutableStateOf(m.title) }
     var price by rememberSaveable(m.id) { mutableStateOf(money(m.price)) }
@@ -237,12 +257,14 @@ private fun EditMonthlyDialog(
     var hour by rememberSaveable(m.id) { mutableIntStateOf(m.hour) }
     var minute by rememberSaveable(m.id) { mutableIntStateOf(m.minute) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
+    var remind by rememberSaveable(m.id) { mutableStateOf(m.reminderMinutes != null) }
+    var remindBefore by rememberSaveable(m.id) { mutableIntStateOf(m.reminderMinutes ?: 24 * 60) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Monthly Expense") },
         text = {
-            GroupCard {
+            GroupCard(Modifier.verticalScroll(rememberScrollState())) {
                 FieldRow(title, { title = it }, "Title")
                 RowDivider()
                 FieldRow(price, { price = it }, "Price ($currency)", decimal = true)
@@ -253,10 +275,15 @@ private fun EditMonthlyDialog(
                     Text("Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
                     Chip(formatTime(LocalTime.of(hour, minute))) { pickTime = true }
                 }
+                RowDivider()
+                ReminderRows(remind, { remind = it }, nextPayment(day, hour, minute), remindBefore) { remindBefore = it }
             }
         },
         confirmButton = {
-            TextButton(enabled = title.isNotBlank(), onClick = { onSave(title, parsePrice(price) ?: 0.0, day, hour, minute) }) {
+            TextButton(
+                enabled = title.isNotBlank() && (!remind || remindBefore > 0),
+                onClick = { onSave(title, parsePrice(price) ?: 0.0, day, hour, minute, if (remind) remindBefore else null) },
+            ) {
                 Text("Save")
             }
         },

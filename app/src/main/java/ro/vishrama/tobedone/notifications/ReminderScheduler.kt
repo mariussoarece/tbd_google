@@ -21,6 +21,8 @@ import java.time.ZonedDateTime
  *    tasks and Daily Routine activities. Nothing is sent if everything is done.
  *  • Activity start: a reminder when each Daily Routine activity begins.
  *  • Monthly expense: a reminder every month on its day (1–28) and time.
+ *  • Optional early reminder for Monthly expenses and activities, set when
+ *    creating them ("… is starting in 2 days and 30 min").
  *
  * Uses normal (inexact) alarms so the app doesn't need the restricted
  * "exact alarm" permission; a reminder can arrive a few minutes late.
@@ -35,6 +37,8 @@ object ReminderScheduler {
     const val KIND_SUMMARY = "summary"
     const val KIND_ACTIVITY = "activity"
     const val KIND_MONTHLY = "monthly"
+    const val KIND_MONTHLY_EARLY = "monthlyearly"
+    const val KIND_ACTIVITY_EARLY = "activityearly"
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
 
@@ -43,6 +47,7 @@ object ReminderScheduler {
     private const val MAX_TASK_ALARMS = 100
     private const val MAX_ACTIVITY_ALARMS = 40
     private const val ACTIVITY_DAYS_AHEAD = 7L
+    private const val EARLY_DAYS_AHEAD = 60L
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -96,6 +101,22 @@ object ReminderScheduler {
             wanted["$KIND_MONTHLY:${m.id}"] = nextMonthly(day, m.hour, m.minute, now)
         }
 
+        // Early reminders chosen by the user ("remind me before")
+        data.monthlyTasks.forEach { m ->
+            val day = m.dayOfMonth ?: return@forEach
+            val before = (m.reminderMinutes ?: return@forEach) * 60_000L
+            // The next payment whose reminder time is still ahead
+            val start = nextMonthly(day, m.hour, m.minute, now + before)
+            wanted["$KIND_MONTHLY_EARLY:${m.id}"] = start - before
+        }
+        data.activities
+            .filter { !it.isCompleted && it.reminderMinutes != null }
+            .map { it to it.date - it.reminderMinutes!! * 60_000L }
+            .filter { (_, at) -> at > now && at < now + EARLY_DAYS_AHEAD * 24 * 60 * 60 * 1000 }
+            .sortedBy { it.second }
+            .take(MAX_ACTIVITY_ALARMS)
+            .forEach { (a, at) -> wanted["$KIND_ACTIVITY_EARLY:${a.id}"] = at }
+
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previous = prefs.getStringSet(KEY_SCHEDULED, emptySet()) ?: emptySet()
@@ -119,12 +140,13 @@ object ReminderScheduler {
         return at.toInstant().toEpochMilli()
     }
 
-    /** Next [day] of a month at [hour]:[minute] that is still in the future. */
+    /** First [day] of a month at [hour]:[minute] that comes after [now]. */
     fun nextMonthly(day: Int, hour: Int, minute: Int, now: Long): Long {
         val zone = AppStore.zone()
         val today = LocalDate.now(zone)
         var at = today.withDayOfMonth(day.coerceIn(1, 28)).atTime(hour, minute).atZone(zone)
-        if (at.toInstant().toEpochMilli() <= now) at = at.plusMonths(1)
+        // [now] can be a later time (for early reminders), so step month by month
+        while (at.toInstant().toEpochMilli() <= now) at = at.plusMonths(1)
         return at.toInstant().toEpochMilli()
     }
 

@@ -54,7 +54,7 @@ import java.util.Locale
 
 /**
  * Home-screen widget: everything happening today (To Do, Monthly Expenses,
- * Daily Routine) ordered by time, with a + button that opens To Do to add a task.
+ * Daily Routine) ordered by time, with a + button that opens the Home screen.
  */
 class TodayWidget : GlanceAppWidget() {
 
@@ -99,7 +99,7 @@ private fun openIntent(context: Context, screen: String?): Action {
 @Composable
 private fun WidgetContent(context: Context, today: LocalDate, agenda: List<AgendaItem>, currency: String) {
     val openApp = openIntent(context, null)
-    val addTask = openIntent(context, "TODO")
+    val openHome = openIntent(context, "HOME")   // the + button: Home screen with all tasks
 
     Column(
         GlanceModifier
@@ -116,7 +116,7 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
                     style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface),
                 )
                 Text(
-                    today.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
+                    today.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())),
                     style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant),
                 )
             }
@@ -125,7 +125,7 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
                     .size(36.dp)
                     .cornerRadius(18.dp)
                     .background(ColorProvider(Blue))
-                    .clickable(addTask),
+                    .clickable(openHome),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("+", style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ColorProvider(Color.White)))
@@ -174,7 +174,7 @@ private fun WidgetRow(context: Context, a: AgendaItem, currency: String) {
     ) {
         Text(
             a.time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)),
-            modifier = GlanceModifier.width(50.dp),
+            modifier = GlanceModifier.width(44.dp),
             style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant),
         )
         Box(GlanceModifier.width(3.dp).height(26.dp).cornerRadius(2.dp).background(ColorProvider(color))) {}
