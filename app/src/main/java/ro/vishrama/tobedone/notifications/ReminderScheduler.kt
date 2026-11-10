@@ -68,6 +68,7 @@ object ReminderScheduler {
 
     fun refresh(context: Context) {
         val store = AppStore.get(context)
+        if (store.isDemo) return   // screenshot mode: no real reminders
         refresh(context, store.data.value, store.settings.value)
     }
 

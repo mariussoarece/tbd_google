@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.AlertDialog
@@ -59,6 +60,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +80,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ExportImport
 import ro.vishrama.tobedone.data.Priority
@@ -640,4 +643,42 @@ fun ReminderRows(
             }
         }
     }
+}
+
+// =====================================================================
+//  "Task added" confirmation: blue capsule like the Add buttons, for 1 second
+// =====================================================================
+
+/** Shows [text] in the middle of the screen for one second every time [trigger] goes up. */
+@Composable
+fun AddedConfirmation(text: String, trigger: Int) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(trigger) {
+        if (trigger > 0) {
+            visible = true
+            kotlinx.coroutines.delay(1000)
+            visible = false
+        }
+    }
+    if (visible) {
+        Popup(alignment = Alignment.Center) {
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(IOS.Blue)
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(text, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+/** Red line under a field, e.g. "Please enter a price". */
+@Composable
+fun ErrorRow(text: String) {
+    GroupRow { Text(text, color = IOS.Red, fontSize = 14.sp) }
 }

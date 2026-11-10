@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget background face: confidence 5–7 (happy smile). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="#FFCC00" android:fillAlpha="0.35"
+        android:pathData="M50,4 A46,46 0 1,1 49.99,4 Z" />
+    <path android:fillColor="#7A5C00" android:fillAlpha="0.45"
+        android:pathData="M30,38 A6,6 0 1,1 42,38 A6,6 0 1,1 30,38 Z M58,38 A6,6 0 1,1 70,38 A6,6 0 1,1 58,38 Z" />
+    <path android:strokeColor="#7A5C00" android:strokeAlpha="0.45"
+        android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M30,60 Q50,78 70,60" />
+</vector>

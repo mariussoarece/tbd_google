@@ -2,6 +2,7 @@ package ro.vishrama.tobedone
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -34,8 +35,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Screenshot mode (debug builds only): show sample data, never your own
+        val demoScene = intent?.getStringExtra(EXTRA_DEMO)
+        val isDebuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (demoScene != null && isDebuggable) AppStore.get(this).enableDemo(demoScene)
+
         // iOS asks for notification permission at launch; do the same on Android 13+.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && savedInstanceState == null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && savedInstanceState == null && demoScene == null) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
@@ -78,5 +84,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Intent extra with a [Screen] name to open, used by the widget. */
         const val EXTRA_OPEN = "open"
+
+        /** Debug builds only: sample data for screenshots (see scripts/take-screenshots.sh). */
+        const val EXTRA_DEMO = "demoScene"
     }
 }

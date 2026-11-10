@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -43,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import ro.vishrama.tobedone.MainActivity
+import ro.vishrama.tobedone.R
 import ro.vishrama.tobedone.data.Agenda
 import ro.vishrama.tobedone.data.AgendaItem
 import ro.vishrama.tobedone.data.AgendaKind
@@ -66,7 +69,7 @@ class TodayWidget : GlanceAppWidget() {
             val today = LocalDate.now(AppStore.zone())
             GlanceTheme {
                 // Only what's left from the current hour onwards
-                WidgetContent(context, today, Agenda.fromCurrentHour(data), settings.currency)
+                WidgetContent(context, today, Agenda.fromCurrentHour(data), settings.currency, faceFor(data))
             }
         }
     }
@@ -77,6 +80,7 @@ class TodayWidget : GlanceAppWidget() {
         /** Redraw all ToBeDone widgets (called after every change in the app). */
         fun requestUpdate(context: Context) {
             val app = context.applicationContext
+            if (AppStore.get(app).isDemo) return   // screenshot mode
             scope.launch { runCatching { TodayWidget().updateAll(app) } }
         }
     }
@@ -90,6 +94,22 @@ private val Blue = Color(0xFF007AFF)
 private val Orange = Color(0xFFFF9500)
 private val Indigo = Color(0xFF5856D6)
 
+/**
+ * Face for the widget background from the Confidence level (7-day average, as on Home):
+ * 8–10 big smile, 5–7 smile, 0–4 serious. No entries in the last 7 days: no face.
+ */
+private fun faceFor(data: ro.vishrama.tobedone.data.AppData): Int? {
+    val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+    val recent = data.confidenceEntries.filter { it.date >= weekAgo }
+    if (recent.isEmpty()) return null
+    val level = recent.map { it.score }.average()
+    return when {
+        level >= 7.5 -> R.drawable.face_big_smile
+        level >= 4.5 -> R.drawable.face_smile
+        else -> R.drawable.face_serious
+    }
+}
+
 private fun openIntent(context: Context, screen: String?): Action {
     val intent = Intent(context, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -98,17 +118,26 @@ private fun openIntent(context: Context, screen: String?): Action {
 }
 
 @Composable
-private fun WidgetContent(context: Context, today: LocalDate, agenda: List<AgendaItem>, currency: String) {
+private fun WidgetContent(context: Context, today: LocalDate, agenda: List<AgendaItem>, currency: String, face: Int?) {
     val openApp = openIntent(context, null)
     val openHome = openIntent(context, "HOME")   // the + button: Home screen with all tasks
 
-    Column(
+    Box(
         GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(18.dp)
-            .padding(12.dp),
+            .cornerRadius(18.dp),
+        contentAlignment = Alignment.BottomEnd,
     ) {
+    // Big faint face in the background, from the Confidence level
+    if (face != null) {
+        Image(
+            provider = ImageProvider(face),
+            contentDescription = null,
+            modifier = GlanceModifier.size(120.dp).padding(6.dp),
+        )
+    }
+    Column(GlanceModifier.fillMaxSize().padding(12.dp)) {
         // Header: "Today" + date, and the + button
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(GlanceModifier.defaultWeight().clickable(openApp)) {
@@ -148,6 +177,7 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
                 }
             }
         }
+    }
     }
 }
 

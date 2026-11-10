@@ -36,6 +36,7 @@ internal object Storage {
                 .put("details", it.details).put("durationMinutes", it.durationMinutes)
                 .put("isCompleted", it.isCompleted).putOpt("seriesId", it.seriesId)
                 .put("repeatsWeekly", it.repeatsWeekly).put("repeatWeeks", it.repeatWeeks)
+                .put("repeatsDaily", it.repeatsDaily).put("repeatDays", it.repeatDays)
                 .putOpt("reminderMinutes", it.reminderMinutes)
         })
         put("confidenceEntries", arr(d.confidenceEntries) {
@@ -44,6 +45,14 @@ internal object Storage {
         })
         put("focusResults", arr(d.focusResults) {
             JSONObject().put("id", it.id).put("date", it.date).put("duration", it.duration)
+        })
+        put("journalEntries", arr(d.journalEntries) {
+            JSONObject().put("id", it.id).put("date", it.date).put("mood", it.mood.name)
+                .put("text", it.body.text)
+                .put("bold", RichText.encode(it.body.bold))
+                .put("italic", RichText.encode(it.body.italic))
+                .put("underline", RichText.encode(it.body.underline))
+                .put("red", RichText.encode(it.body.red))
         })
     }
 
@@ -103,6 +112,8 @@ internal object Storage {
                 seriesId = it.optStringOrNull("seriesId"),
                 repeatsWeekly = it.optBoolean("repeatsWeekly"),
                 repeatWeeks = it.optInt("repeatWeeks", 0),
+                repeatsDaily = it.optBoolean("repeatsDaily"),
+                repeatDays = it.optInt("repeatDays", 0),
                 reminderMinutes = it.optIntOrNull("reminderMinutes"),
             )
         },
@@ -118,6 +129,20 @@ internal object Storage {
         },
         focusResults = o.objects("focusResults").map {
             FocusResult(it.getString("id"), it.getLong("date"), it.getDouble("duration"))
+        },
+        journalEntries = o.objects("journalEntries").map {
+            JournalEntry(
+                id = it.getString("id"),
+                date = it.getLong("date"),
+                mood = Mood.parse(it.optString("mood")),
+                body = RichText(
+                    text = it.optString("text", ""),
+                    bold = RichText.decode(it.optStringOrNull("bold")),
+                    italic = RichText.decode(it.optStringOrNull("italic")),
+                    underline = RichText.decode(it.optStringOrNull("underline")),
+                    red = RichText.decode(it.optStringOrNull("red")),
+                ),
+            )
         },
     )
 

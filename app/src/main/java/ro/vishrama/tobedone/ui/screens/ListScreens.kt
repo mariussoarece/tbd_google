@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,6 +36,8 @@ import ro.vishrama.tobedone.data.MonthlyTask
 import ro.vishrama.tobedone.data.describeMinutes
 import ro.vishrama.tobedone.data.Priority
 import ro.vishrama.tobedone.ui.AddButtonRow
+import ro.vishrama.tobedone.ui.AddedConfirmation
+import ro.vishrama.tobedone.ui.ErrorRow
 import ro.vishrama.tobedone.ui.Chip
 import ro.vishrama.tobedone.ui.DateTimeRow
 import ro.vishrama.tobedone.ui.DetailScreen
@@ -82,10 +85,12 @@ fun TodoScreen(store: AppStore, onBack: () -> Unit) {
     var remind by rememberSaveable { mutableStateOf(false) }
     var remindBefore by rememberSaveable { mutableIntStateOf(30) }   // default: 30 min before
     val canAdd = title.isNotBlank() && (!remind || remindBefore > 0)
+    var added by remember { mutableIntStateOf(0) }   // shows "Task added" for 1 second
 
     fun add() {
         if (!canAdd) return
         store.addTask(title, dueAt, priority, if (remind) remindBefore else null)
+        added++
         title = ""
         dueAt = System.currentTimeMillis()
         priority = Priority.MEDIUM
@@ -96,6 +101,8 @@ fun TodoScreen(store: AppStore, onBack: () -> Unit) {
     val sorted = data.tasks.sortedBy { it.dueAt }
     val open = sorted.filter { !it.isCompleted }
     val done = sorted.filter { it.isCompleted }
+
+    AddedConfirmation("Task added", added)
 
     DetailScreen("To Do Tasks", IOS.Blue, onBack) {
         item { SectionHeader("Add New Task") }
@@ -163,10 +170,14 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     var pickTime by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     val canAdd = title.isNotBlank()
+    var priceMissing by rememberSaveable { mutableStateOf(false) }
 
     fun add() {
         if (!canAdd) return
-        store.addMonthlyTask(title, parsePrice(price) ?: 0.0, day, hour, minute)
+        val p = parsePrice(price)
+        if (p == null) { priceMissing = true; return }
+        priceMissing = false
+        store.addMonthlyTask(title, p, day, hour, minute)
         title = ""
         price = ""
         day = todayDay
@@ -183,7 +194,8 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
             GroupCard {
                 FieldRow(title, { title = it }, "Title")
                 RowDivider()
-                FieldRow(price, { price = it }, "Price ($cur)", decimal = true, onDone = ::add)
+                FieldRow(price, { price = it; priceMissing = false }, "Price ($cur)", decimal = true, onDone = ::add)
+                if (priceMissing) ErrorRow("Please enter a price")
                 RowDivider()
                 PickerRow("Day of month", day, (1..28).toList(), { "$it" }) { day = it }
                 RowDivider()
@@ -304,10 +316,13 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var editedPrice by rememberSaveable { mutableStateOf("") }
 
-    val canAdd = name.isNotBlank() && parsePrice(price) != null
+    val canAdd = name.isNotBlank()
+    var priceMissing by rememberSaveable { mutableStateOf(false) }
     fun add() {
-        val p = parsePrice(price) ?: return
         if (name.isBlank()) return
+        val p = parsePrice(price)
+        if (p == null) { priceMissing = true; return }
+        priceMissing = false
         store.addShoppingItem(name, p, priority)
         name = ""
         price = ""
@@ -323,7 +338,8 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
             GroupCard {
                 FieldRow(name, { name = it }, "Item Name")
                 RowDivider()
-                FieldRow(price, { price = it }, "Price", decimal = true, onDone = ::add)
+                FieldRow(price, { price = it; priceMissing = false }, "Price", decimal = true, onDone = ::add)
+                if (priceMissing) ErrorRow("Please enter a price")
                 RowDivider()
                 PriorityRow(priority) { priority = it }
                 RowDivider()

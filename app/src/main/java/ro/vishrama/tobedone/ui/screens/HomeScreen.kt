@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Favorite
@@ -33,17 +34,24 @@ import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -87,8 +95,12 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
     val openTasks = data.tasks.count { !it.isCompleted && it.dueAt < endOfToday }
     val activitiesLeft = data.activities.count { !it.isCompleted && AppStore.dayOf(it.date) == today }
 
-    // Everything scheduled today, by time: To Do, Monthly Expenses, Daily Routine
-    val agenda = Agenda.forDay(data, today)
+    // Everything still to do today, by time: To Do, Monthly Expenses, Daily Routine.
+    // Completed items disappear from the card.
+    val agenda = Agenda.forDay(data, today).filter { !it.done }
+
+    // Latest journal mood, e.g. "🙂"
+    val journalText = data.journalEntries.maxByOrNull { it.date }?.mood?.emoji
 
     val monthlyText = if (data.monthlyTasks.isEmpty()) null
     else "${compactNumber(data.monthlyTasks.sumOf { it.price })} ${settings.currency}"
@@ -101,6 +113,28 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
     val focusText = data.focusResults.maxOfOrNull { it.duration }?.let { "Best ${formatBest(it)}" }
 
     fun count(n: Int) = if (n > 0) "$n" else null
+
+    // "Please rate us" box after 1 and 2 months of use
+    val context = LocalContext.current
+    var reviewBox by rememberSaveable { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) { if (reviewBox == null) reviewBox = store.reviewDue() }
+    reviewBox?.let { which ->
+        AlertDialog(
+            onDismissRequest = { store.markReviewShown(which); reviewBox = null },
+            title = { Text("Enjoying ToBeDone?") },
+            text = { Text("If you like the app, please help us by rating it on Google Play. It only takes a moment and means a lot! ⭐") },
+            confirmButton = {
+                TextButton(onClick = {
+                    store.markReviewShown(which)
+                    reviewBox = null
+                    openPlayStore(context)
+                }) { Text("Rate now") }
+            },
+            dismissButton = {
+                TextButton(onClick = { store.markReviewShown(which); reviewBox = null }) { Text("Not now") }
+            },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(g.background).windowInsetsPadding(WindowInsets.safeDrawing),
@@ -215,6 +249,8 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
                 HomeRow("Confidence", Icons.Filled.Favorite, IOS.Pink, confidenceText) { onOpen(Screen.CONFIDENCE) }
                 RowDivider(58.dp)
                 HomeRow("Focus Test", Icons.Filled.Visibility, IOS.Blue, focusText) { onOpen(Screen.FOCUS) }
+                RowDivider(58.dp)
+                HomeRow("Journaling", Icons.Filled.AutoStories, IOS.Teal, journalText) { onOpen(Screen.JOURNAL) }
             }
         }
 
@@ -229,6 +265,22 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
                 )
             }
         }
+    }
+}
+
+/** Opens the app's page in the Play Store app (or in the browser if Play isn't there). */
+private fun openPlayStore(context: android.content.Context) {
+    val pkg = context.packageName
+    val market = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkg"))
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    val web = android.content.Intent(
+        android.content.Intent.ACTION_VIEW,
+        android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkg"),
+    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(market)
+    } catch (e: android.content.ActivityNotFoundException) {
+        runCatching { context.startActivity(web) }
     }
 }
 

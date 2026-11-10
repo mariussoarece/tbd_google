@@ -85,6 +85,8 @@ data class Activity(
     val seriesId: String? = null,
     val repeatsWeekly: Boolean = false,
     val repeatWeeks: Int = 0,
+    val repeatsDaily: Boolean = false,
+    val repeatDays: Int = 0,
     /** Extra reminder this many minutes before the start (null = none). */
     val reminderMinutes: Int? = null,
 ) {
@@ -109,6 +111,29 @@ data class FocusResult(
     val duration: Double,
 )
 
+/** How the day felt, for Journaling (best to worst). */
+enum class Mood(val label: String, val emoji: String) {
+    AWESOME("Awesome", "🤩"),
+    EXCELLENT("Excellent", "😄"),
+    GOOD("Good", "🙂"),
+    NOT_BAD("Not Bad", "😌"),
+    COULD_BE_BETTER("Could be better", "😕"),
+    BAD("Bad", "😞"),
+    WORSE("Worse", "😣");
+
+    companion object {
+        fun parse(name: String?): Mood = entries.firstOrNull { it.name == name } ?: GOOD
+    }
+}
+
+/** A Journaling entry: mood + formatted text ([RichText]). */
+data class JournalEntry(
+    val id: String = newId(),
+    val date: Long,
+    val mood: Mood,
+    val body: RichText,
+)
+
 data class AppData(
     val tasks: List<DueTask> = emptyList(),
     val shoppingItems: List<ShoppingItem> = emptyList(),
@@ -118,6 +143,7 @@ data class AppData(
     val activities: List<Activity> = emptyList(),
     val confidenceEntries: List<ConfidenceEntry> = emptyList(),
     val focusResults: List<FocusResult> = emptyList(),
+    val journalEntries: List<JournalEntry> = emptyList(),
 )
 
 enum class ThemeSetting(val label: String) {
@@ -139,6 +165,10 @@ data class Settings(
     val activityStartEnabled: Boolean = true,
     val reminderHour: Int = 21,
     val reminderMinute: Int = 0,
+    /** When the app was first opened (for the "please rate us" box after 1 and 2 months). */
+    val firstLaunchAt: Long = 0L,
+    val reviewAsked1: Boolean = false,
+    val reviewAsked2: Boolean = false,
 )
 
 /** Same list as the iOS Settings screen. */

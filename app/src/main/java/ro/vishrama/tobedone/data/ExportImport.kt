@@ -66,8 +66,31 @@ object ExportImport {
             .put("details", it.details).put("durationMinutes", it.durationMinutes)
             .put("isCompleted", it.isCompleted).putOpt("seriesId", it.seriesId)
             .put("repeatsWeekly", it.repeatsWeekly).put("repeatWeeks", it.repeatWeeks)
+            .put("repeatsDaily", it.repeatsDaily).put("repeatDays", it.repeatDays)
             .putOpt("reminderMinutes", it.reminderMinutes)
     })
+
+    /** All Journaling entries as one HTML page (opens in any browser, keeps bold/italic/underline/red). */
+    fun exportJournalHtml(entries: List<JournalEntry>): String {
+        val fmt = java.time.format.DateTimeFormatter.ofLocalizedDateTime(
+            java.time.format.FormatStyle.FULL, java.time.format.FormatStyle.SHORT,
+        )
+        val sb = StringBuilder()
+        sb.append("<!DOCTYPE html><html><head><meta charset=\"utf-8\">")
+        sb.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
+        sb.append("<title>ToBeDone – Journal</title>")
+        sb.append("<style>body{font-family:sans-serif;max-width:720px;margin:24px auto;padding:0 16px;line-height:1.5}")
+        sb.append(".e{border-bottom:1px solid #ddd;padding:16px 0}.d{color:#777;font-size:14px}.m{font-weight:600}</style>")
+        sb.append("</head><body><h1>Journal</h1>")
+        for (e in entries.sortedByDescending { it.date }) {
+            val date = java.time.Instant.ofEpochMilli(e.date).atZone(AppStore.zone()).format(fmt)
+            sb.append("<div class=\"e\"><div class=\"d\">").append(date).append("</div>")
+            sb.append("<div class=\"m\">").append(e.mood.emoji).append(" ").append(e.mood.label).append("</div>")
+            sb.append("<p>").append(e.body.toHtml()).append("</p></div>")
+        }
+        sb.append("</body></html>")
+        return sb.toString()
+    }
 
     /** Everything that could be read from an import file. Older iOS key names are accepted too. */
     data class Imported(
@@ -130,6 +153,8 @@ object ExportImport {
                     seriesId = it.optStringOrNull("seriesId"),
                     repeatsWeekly = it.optBoolean("repeatsWeekly"),
                     repeatWeeks = it.optInt("repeatWeeks", 0),
+                    repeatsDaily = it.optBoolean("repeatsDaily"),
+                    repeatDays = it.optInt("repeatDays", 0),
                     reminderMinutes = it.optIntOrNull("reminderMinutes"),
                 )
             },

@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -529,6 +532,49 @@ private fun overlapGroups(items: List<Activity>): List<List<Activity>> {
 //  New Activity (iOS AddActivitySheet)
 // ---------------------------------------------------------------------
 
+private const val MAX_DAYS = 100
+private const val MAX_WEEKS = 52
+
+/** "For [ 7 ] days  − +" with a number you can type; red message when it's too high. */
+@Composable
+private fun RepeatCountRow(text: String, onText: (String) -> Unit, unit: String, max: Int, error: String) {
+    val g = LocalGrouped.current
+    val value = text.toIntOrNull()
+    GroupRow {
+        Text("For", fontSize = 17.sp)
+        Box(
+            Modifier
+                .width(64.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(g.fill)
+                .padding(horizontal = 8.dp, vertical = 5.dp),
+        ) {
+            BasicTextField(
+                value = text,
+                onValueChange = { new -> onText(new.filter { it.isDigit() }.take(4)) },
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(IOS.Blue),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Text(unit, fontSize = 17.sp, modifier = Modifier.weight(1f))
+        Stepper(
+            onMinus = { onText(((value ?: 1) - 1).coerceAtLeast(1).toString()) },
+            onPlus = { onText(((value ?: 0) + 1).coerceAtMost(max).toString()) },
+        )
+    }
+    when {
+        value != null && value > max -> GroupRow { Text(error, color = IOS.Red, fontSize = 14.sp) }
+        value == null || value < 1 -> GroupRow { Text("Enter a number from 1 to $max", color = IOS.Red, fontSize = 14.sp) }
+    }
+}
+
 @Composable
 private fun AddActivityDialog(
     defaultDay: LocalDate,
@@ -540,7 +586,13 @@ private fun AddActivityDialog(
     // New activities start at 10:00 on the selected day
     var date by rememberSaveable { mutableStateOf(toMillis(defaultDay.atTime(LocalTime.of(10, 0)))) }
     var repeatWeekly by rememberSaveable { mutableStateOf(false) }
-    var weeks by rememberSaveable { mutableIntStateOf(4) }
+    var weeksText by rememberSaveable { mutableStateOf("4") }
+    var repeatDaily by rememberSaveable { mutableStateOf(false) }
+    var daysText by rememberSaveable { mutableStateOf("7") }
+    val weeks = weeksText.toIntOrNull() ?: 0
+    val days = daysText.toIntOrNull() ?: 0
+    val weeksOk = !repeatWeekly || weeks in 1..MAX_WEEKS
+    val daysOk = !repeatDaily || days in 1..MAX_DAYS
     var name by rememberSaveable { mutableStateOf("") }
     var details by rememberSaveable { mutableStateOf("") }
     var duration by rememberSaveable { mutableIntStateOf(60) }
@@ -549,18 +601,24 @@ private fun AddActivityDialog(
     var pending by remember { mutableStateOf<List<Activity>?>(null) }
 
     fun build(): List<Activity> {
-        val count = if (repeatWeekly) weeks else 1
-        val series = if (repeatWeekly) newId() else null
+        val count = when {
+            repeatWeekly -> weeks
+            repeatDaily -> days
+            else -> 1
+        }
+        val series = if (repeatWeekly || repeatDaily) newId() else null
         val start = toLocalDateTime(date)
-        return (0 until count).map { w ->
+        return (0 until count).map { n ->
             Activity(
-                date = toMillis(start.plusWeeks(w.toLong())),
+                date = toMillis(if (repeatDaily) start.plusDays(n.toLong()) else start.plusWeeks(n.toLong())),
                 name = name.trim(),
                 details = details,
                 durationMinutes = duration,
                 seriesId = series,
                 repeatsWeekly = repeatWeekly,
                 repeatWeeks = if (repeatWeekly) weeks else 0,
+                repeatsDaily = repeatDaily,
+                repeatDays = if (repeatDaily) days else 0,
                 reminderMinutes = if (remind && remindBefore > 0) remindBefore else null,
             )
         }
@@ -580,7 +638,7 @@ private fun AddActivityDialog(
                 TextButton(onClick = onDismiss) { Text("Cancel", color = IOS.Blue) }
                 Text("New Activity", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center)
-                ProminentButton("Save", enabled = name.isNotBlank() && (!remind || remindBefore > 0)) {
+                ProminentButton("Save", enabled = name.isNotBlank() && (!remind || remindBefore > 0) && weeksOk && daysOk) {
                     val items = build()
                     // If any occurrence overlaps, ask once for the whole set
                     if (items.any { n -> existing.any { it.overlaps(n) } }) {
@@ -595,19 +653,33 @@ private fun AddActivityDialog(
             GroupCard {
                 DateTimeRow("Date", toLocalDateTime(date), { date = toMillis(it) })
                 RowDivider()
+                // Repeat daily and Repeat weekly: only one of them can be on
                 GroupRow {
-                    Text("Repeat weekly (same weekday)", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Text("Repeat daily", fontSize = 17.sp, modifier = Modifier.weight(1f))
                     Switch(
-                        checked = repeatWeekly, onCheckedChange = { repeatWeekly = it },
+                        checked = repeatDaily,
+                        onCheckedChange = { repeatDaily = it; if (it) repeatWeekly = false },
+                        colors = SwitchDefaults.colors(checkedTrackColor = IOS.Green),
+                    )
+                }
+                if (repeatDaily) {
+                    RowDivider()
+                    RepeatCountRow(daysText, { daysText = it }, unit = "days", max = MAX_DAYS,
+                        error = "Number of days should be less than $MAX_DAYS")
+                }
+                RowDivider()
+                GroupRow {
+                    Text("Repeat weekly", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = repeatWeekly,
+                        onCheckedChange = { repeatWeekly = it; if (it) repeatDaily = false },
                         colors = SwitchDefaults.colors(checkedTrackColor = IOS.Green),
                     )
                 }
                 if (repeatWeekly) {
                     RowDivider()
-                    GroupRow {
-                        Text("For $weeks week" + if (weeks == 1) "" else "s", fontSize = 17.sp, modifier = Modifier.weight(1f))
-                        Stepper(onMinus = { weeks = (weeks - 1).coerceAtLeast(1) }, onPlus = { weeks = (weeks + 1).coerceAtMost(52) })
-                    }
+                    RepeatCountRow(weeksText, { weeksText = it }, unit = "weeks", max = MAX_WEEKS,
+                        error = "Number of weeks should be less than $MAX_WEEKS")
                 }
                 RowDivider()
                 ReminderRows(remind, { remind = it }, toLocalDateTime(date), remindBefore) { remindBefore = it }

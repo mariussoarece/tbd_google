@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget background face: confidence 0–4 (serious). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="#FFCC00" android:fillAlpha="0.35"
+        android:pathData="M50,4 A46,46 0 1,1 49.99,4 Z" />
+    <path android:fillColor="#7A5C00" android:fillAlpha="0.45"
+        android:pathData="M30,40 A6,6 0 1,1 42,40 A6,6 0 1,1 30,40 Z M58,40 A6,6 0 1,1 70,40 A6,6 0 1,1 58,40 Z" />
+    <path android:strokeColor="#7A5C00" android:strokeAlpha="0.45"
+        android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M34,66 L66,66" />
+</vector>

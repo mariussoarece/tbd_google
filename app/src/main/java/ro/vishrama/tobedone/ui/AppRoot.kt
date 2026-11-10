@@ -14,13 +14,14 @@ import ro.vishrama.tobedone.ui.screens.FocusTestScreen
 import ro.vishrama.tobedone.ui.screens.GroceryScreen
 import ro.vishrama.tobedone.ui.screens.HomeScreen
 import ro.vishrama.tobedone.ui.screens.IntroFlow
+import ro.vishrama.tobedone.ui.screens.JournalScreen
 import ro.vishrama.tobedone.ui.screens.MonthlyScreen
 import ro.vishrama.tobedone.ui.screens.ProjectsScreen
 import ro.vishrama.tobedone.ui.screens.SettingsScreen
 import ro.vishrama.tobedone.ui.screens.ShoppingScreen
 import ro.vishrama.tobedone.ui.screens.TodoScreen
 
-enum class Screen { HOME, TODO, MONTHLY, PROJECTS, SHOPPING, GROCERY, ROUTINE, WEEK, CONFIDENCE, FOCUS, SETTINGS }
+enum class Screen { HOME, TODO, MONTHLY, PROJECTS, SHOPPING, GROCERY, ROUTINE, WEEK, CONFIDENCE, FOCUS, JOURNAL, SETTINGS }
 
 /** Home screen with a list of sections, each opening its own screen (iOS NavigationStack). */
 @Composable
@@ -53,6 +54,7 @@ fun AppRoot(store: AppStore, requested: Screen? = null, onRequestHandled: () -> 
         Screen.WEEK -> DailyRoutineScreen(store, back, startWeekly = true)
         Screen.CONFIDENCE -> ConfidenceScreen(store, back)
         Screen.FOCUS -> FocusTestScreen(store, back)
+        Screen.JOURNAL -> JournalScreen(store, back)
         Screen.SETTINGS -> SettingsScreen(store, back)
     }
 }

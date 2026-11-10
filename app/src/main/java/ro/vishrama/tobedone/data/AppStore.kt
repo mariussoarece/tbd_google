@@ -215,6 +215,50 @@ class AppStore private constructor(private val appContext: Context) {
 
     fun deleteFocusResult(id: String) = mutate { d -> d.copy(focusResults = d.focusResults.filterNot { it.id == id }) }
 
+    // ================= Journaling =================
+
+    fun addJournal(mood: Mood, body: RichText) = mutate {
+        it.copy(journalEntries = it.journalEntries + JournalEntry(date = System.currentTimeMillis(), mood = mood, body = body))
+    }
+
+    fun updateJournal(id: String, mood: Mood, body: RichText) = mutate { d ->
+        d.copy(journalEntries = d.journalEntries.map { if (it.id == id) it.copy(mood = mood, body = body) else it })
+    }
+
+    fun deleteJournal(id: String) = mutate { d -> d.copy(journalEntries = d.journalEntries.filterNot { it.id == id }) }
+
+    // ================= "Please rate us" box =================
+
+    /** 1 or 2 when the rating box should be shown now (after 1 and 2 months of use), else null. */
+    fun reviewDue(now: Long = System.currentTimeMillis()): Int? {
+        if (isDemo) return null
+        val s = _settings.value
+        val days = (now - s.firstLaunchAt) / (24L * 60 * 60 * 1000)
+        return when {
+            days >= 60 && !s.reviewAsked2 -> 2
+            days >= 30 && !s.reviewAsked1 -> 1
+            else -> null
+        }
+    }
+
+    /** The box was shown: don't show it again for this (or an earlier) month. */
+    fun markReviewShown(which: Int) = updateSettings {
+        if (which >= 2) it.copy(reviewAsked1 = true, reviewAsked2 = true) else it.copy(reviewAsked1 = true)
+    }
+
+    // ================= Screenshot mode =================
+
+    /** True while showing sample data for screenshots: nothing is saved and no reminders are set. */
+    @Volatile var isDemo: Boolean = false
+        private set
+
+    /** Shows the sample data for one screenshot ([DemoData]). Only used by debug builds. */
+    fun enableDemo(scene: String) {
+        isDemo = true
+        _data.value = DemoData.forScene(scene)
+        _settings.value = _settings.value.copy(hasSeenIntro = true, userName = "", currency = "EUR")
+    }
+
     // ================= Import =================
 
     /** Adds items from an export file, skipping ones already in the app (same rules as iOS). Returns how many were added. */
@@ -263,6 +307,7 @@ class AppStore private constructor(private val appContext: Context) {
     private fun mutate(refresh: Boolean = false, block: (AppData) -> AppData) {
         _data.update(block)
         val snapshot = _data.value
+        if (isDemo) return   // screenshot mode: sample data stays in memory only
         writer.execute { save(snapshot) }
         if (refresh) ReminderScheduler.refresh(appContext, snapshot, _settings.value)
         TodayWidget.requestUpdate(appContext)
@@ -271,6 +316,7 @@ class AppStore private constructor(private val appContext: Context) {
     private fun updateSettings(refresh: Boolean = false, block: (Settings) -> Settings) {
         _settings.update(block)
         val s = _settings.value
+        if (isDemo) return
         prefs.edit()
             .putString(K_THEME, s.theme.name)
             .putString(K_CURRENCY, s.currency)
@@ -280,12 +326,29 @@ class AppStore private constructor(private val appContext: Context) {
             .putBoolean(K_ACTIVITY, s.activityStartEnabled)
             .putInt(K_HOUR, s.reminderHour)
             .putInt(K_MINUTE, s.reminderMinute)
+            .putLong(K_FIRST, s.firstLaunchAt)
+            .putBoolean(K_REVIEW1, s.reviewAsked1)
+            .putBoolean(K_REVIEW2, s.reviewAsked2)
             .apply()
         if (refresh) ReminderScheduler.refresh(appContext, _data.value, s)
         TodayWidget.requestUpdate(appContext)
     }
 
-    private fun loadSettings() = Settings(
+    private fun loadSettings(): Settings {
+        // Remember the first time the app was opened (for the rating box after 1 and 2 months)
+        var first = prefs.getLong(K_FIRST, 0L)
+        if (first == 0L) {
+            first = System.currentTimeMillis()
+            prefs.edit().putLong(K_FIRST, first).apply()
+        }
+        return readSettings().copy(
+            firstLaunchAt = first,
+            reviewAsked1 = prefs.getBoolean(K_REVIEW1, false),
+            reviewAsked2 = prefs.getBoolean(K_REVIEW2, false),
+        )
+    }
+
+    private fun readSettings() = Settings(
         theme = ThemeSetting.parse(prefs.getString(K_THEME, null)),
         currency = prefs.getString(K_CURRENCY, null) ?: "USD",
         userName = prefs.getString(K_NAME, null) ?: "",
@@ -330,6 +393,9 @@ class AppStore private constructor(private val appContext: Context) {
         private const val K_ACTIVITY = "activityStartEnabled"
         private const val K_HOUR = "reminderHour"
         private const val K_MINUTE = "reminderMinute"
+        private const val K_FIRST = "firstLaunchAt"
+        private const val K_REVIEW1 = "reviewAsked1"
+        private const val K_REVIEW2 = "reviewAsked2"
 
         @Volatile private var instance: AppStore? = null
 

@@ -22,6 +22,7 @@ object IOS {
     val Indigo = Color(0xFF5856D6)
     val Pink = Color(0xFFFF2D55)
     val Purple = Color(0xFFAF52DE)
+    val Teal = Color(0xFF30B0C7)
 }
 
 /** Grouped-list colours (iOS "systemGroupedBackground" family). */

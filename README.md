@@ -33,6 +33,22 @@ activities left, things to buy) and three groups, each opening its own screen:
   for an extra reminder: "X is starting in 2 days and 30 min" / "X is starting in 45 min".
   Monthly Expenses only get the reminder on their day and time.
 
+**New in 2.5**
+- **Journaling** (Home → GROW): mood from Awesome to Worse ("How is your mood?"), text with **bold**, *italic*,
+  underline and black/red colour, search through all entries, export all entries as a web page (HTML).
+- **Widget** background shows a face from your Confidence level (7-day average): 8–10 big smile, 5–7 smile, 0–4 serious.
+- **To Do**: a blue "Task added" message for 1 second after adding a task.
+- **Today** card on Home: completed items disappear.
+- **Monthly Expenses** and **Shopping**: red "Please enter a price" if the price is missing.
+- **Daily Routine**: Repeat daily (up to 100 days) or Repeat weekly (up to 52 weeks) – only one at a time.
+- **Rating box** after 1 and 2 months of use, with a button to the app's Play Store page.
+
+## Screenshots
+
+`./scripts/take-screenshots.sh` takes the Play Store screenshots on a running emulator with sample data
+(the same tasks as the iPhone app's screenshots, plus Shopping and Journaling). Your own data is not used or changed.
+The PNG files go to "ToBeDone Android Screenshots" on your Desktop.
+
 **Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),
 daily summary notification (default 21:00) and activity-start notifications.
 
@@ -61,7 +77,7 @@ play-store/icon-512.png    the 512×512 icon Play Console asks for
 ```
 
 Package name / application ID: `ro.vishrama.tobedone` (same as the iOS bundle ID).
-Version: `versionName 2.4`, `versionCode 7`. Target SDK 36 (Android 16), which Google Play
+Version: `versionName 2.5`, `versionCode 8`. Target SDK 36 (Android 16), which Google Play
 requires for new apps and updates; min SDK 26 (Android 8.0).
 
 ## 1. Open and run it
