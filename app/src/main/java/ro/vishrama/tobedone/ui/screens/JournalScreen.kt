@@ -130,20 +130,25 @@ fun JournalScreen(store: AppStore, onBack: () -> Unit) {
         it.body.text.contains(q, ignoreCase = true) || it.mood.label.contains(q, ignoreCase = true)
     }
 
-    DetailScreen("Journaling", IOS.Teal, onBack) {
-        // New Entry: blue button with white text and the pencil-on-paper icon
+    DetailScreen("Journaling", IOS.Orange, onBack) {
+        // New Entry: pencil-on-paper icon in blue to the left, then the blue button with white text
         item {
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Row(
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.EditNote, contentDescription = null, tint = IOS.Blue,
+                    modifier = Modifier.size(28.dp).clickable { editing = "new" },
+                )
+                Spacer(Modifier.width(8.dp))
+                Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
                         .background(IOS.Blue)
                         .clickable { editing = "new" }
                         .padding(horizontal = 16.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.EditNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(6.dp))
                     Text("New Entry", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }

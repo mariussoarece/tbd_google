@@ -111,6 +111,14 @@ class AppStore private constructor(private val appContext: Context) {
             })
         }
 
+    /** Marks a Monthly Expense as done (paid) for this month, or undoes it. */
+    fun toggleMonthlyPaid(id: String) = mutate(refresh = true) { d ->
+        val month = java.time.YearMonth.now(zone()).toString()
+        d.copy(monthlyTasks = d.monthlyTasks.map {
+            if (it.id == id) it.copy(paidMonth = if (it.paidMonth == month) null else month) else it
+        })
+    }
+
     fun deleteMonthlyTask(id: String) = mutate(refresh = true) { d ->
         d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id })
     }

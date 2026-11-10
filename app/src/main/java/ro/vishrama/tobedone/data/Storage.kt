@@ -21,6 +21,7 @@ internal object Storage {
         put("monthlyTasks", arr(d.monthlyTasks) {
             JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
                 .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
+                .putOpt("paidMonth", it.paidMonth)
         })
         put("groceryItems", arr(d.groceryItems) {
             JSONObject().put("id", it.id).put("name", it.name).put("isBought", it.isBought)
@@ -86,6 +87,7 @@ internal object Storage {
                 dayOfMonth = it.optIntOrNull("dayOfMonth"),
                 hour = it.optInt("hour", 10),
                 minute = it.optInt("minute", 0),
+                paidMonth = it.optStringOrNull("paidMonth"),
             )
         },
         groceryItems = o.objects("groceryItems").map {

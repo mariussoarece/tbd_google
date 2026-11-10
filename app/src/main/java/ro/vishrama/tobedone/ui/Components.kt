@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -649,7 +650,7 @@ fun ReminderRows(
 //  "Task added" confirmation: blue capsule like the Add buttons, for 1 second
 // =====================================================================
 
-/** Shows [text] in the middle of the screen for one second every time [trigger] goes up. */
+/** Shows [text] in a black capsule in the middle of the screen for one second every time [trigger] goes up. */
 @Composable
 fun AddedConfirmation(text: String, trigger: Int) {
     var visible by remember { mutableStateOf(false) }
@@ -665,7 +666,8 @@ fun AddedConfirmation(text: String, trigger: Int) {
             Row(
                 Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(IOS.Blue)
+                    .background(Color.Black)
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))   // visible in Dark mode too
                     .padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

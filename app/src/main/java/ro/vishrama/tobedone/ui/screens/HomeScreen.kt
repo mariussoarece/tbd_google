@@ -205,7 +205,7 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
                                 onToggle = when (a.kind) {
                                     AgendaKind.TASK -> ({ store.toggleTask(a.id) })
                                     AgendaKind.ACTIVITY -> ({ store.toggleActivity(a.id) })
-                                    AgendaKind.MONTHLY -> null
+                                    AgendaKind.MONTHLY -> ({ store.toggleMonthlyPaid(a.id) })
                                 },
                                 onOpen = {
                                     onOpen(when (a.kind) {
@@ -250,7 +250,7 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
                 RowDivider(58.dp)
                 HomeRow("Focus Test", Icons.Filled.Visibility, IOS.Blue, focusText) { onOpen(Screen.FOCUS) }
                 RowDivider(58.dp)
-                HomeRow("Journaling", Icons.Filled.AutoStories, IOS.Teal, journalText) { onOpen(Screen.JOURNAL) }
+                HomeRow("Journaling", Icons.Filled.AutoStories, IOS.Orange, journalText) { onOpen(Screen.JOURNAL) }
             }
         }
 

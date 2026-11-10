@@ -77,7 +77,7 @@ play-store/icon-512.png    the 512×512 icon Play Console asks for
 ```
 
 Package name / application ID: `ro.vishrama.tobedone` (same as the iOS bundle ID).
-Version: `versionName 2.5`, `versionCode 8`. Target SDK 36 (Android 16), which Google Play
+Version: `versionName 2.6`, `versionCode 9`. Target SDK 36 (Android 16), which Google Play
 requires for new apps and updates; min SDK 26 (Android 8.0).
 
 ## 1. Open and run it

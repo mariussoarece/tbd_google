@@ -48,7 +48,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
             ReminderScheduler.KIND_MONTHLY -> {
                 val m = data.monthlyTasks.firstOrNull { it.id == id }
-                if (m != null) {
+                if (m != null && !m.isPaid(java.time.YearMonth.now(AppStore.zone()))) {
                     val currency = AppStore.get(context).settings.value.currency
                     val amount = if (m.price > 0) " (" + String.format("%.2f", m.price) + " $currency)" else ""
                     show(context, ReminderScheduler.CHANNEL_TASKS, "monthly:$id",

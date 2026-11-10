@@ -221,6 +221,9 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
                             ?: "No day set – tap to add one",
                         fontSize = 12.sp, color = g.secondaryText,
                     )
+                    if (m.isPaid(java.time.YearMonth.now(AppStore.zone()))) {
+                        Text("✓ Done for this month", fontSize = 12.sp, color = IOS.Green)
+                    }
                 }
                 Text("${money(m.price)} $cur", fontSize = 17.sp, color = g.secondaryText)
             }

@@ -50,7 +50,11 @@ data class MonthlyTask(
     val dayOfMonth: Int? = null,
     val hour: Int = 10,
     val minute: Int = 0,
-)
+    /** Month it was last marked as done, e.g. "2026-11". Done again next month. */
+    val paidMonth: String? = null,
+) {
+    fun isPaid(month: java.time.YearMonth): Boolean = paidMonth == month.toString()
+}
 
 /** iOS GroceryItemModel */
 data class GroceryItem(

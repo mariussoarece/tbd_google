@@ -34,7 +34,10 @@ object Agenda {
 
         data.monthlyTasks.filter { it.dayOfMonth == day.dayOfMonth }.forEach {
             val start = day.atTime(it.hour, it.minute).atZone(zone).toInstant().toEpochMilli()
-            items += AgendaItem(AgendaKind.MONTHLY, it.id, it.title, start, price = it.price)
+            items += AgendaItem(
+                AgendaKind.MONTHLY, it.id, it.title, start, price = it.price,
+                done = it.isPaid(java.time.YearMonth.from(day)),
+            )
         }
 
         data.activities.filter { AppStore.dayOf(it.date) == day }.forEach {
@@ -48,15 +51,15 @@ object Agenda {
     }
 
     /**
-     * Today's items from the start of the current hour onwards (used by the widget).
-     * Activities that started earlier but are still going on are kept too.
+     * Today's unfinished items from the start of the current hour onwards (used by the widget).
+     * Activities that started earlier but are still going on are kept too; completed items are hidden.
      */
     fun fromCurrentHour(data: AppData, now: Long = System.currentTimeMillis()): List<AgendaItem> {
         val zone = AppStore.zone()
         val nowTime = java.time.Instant.ofEpochMilli(now).atZone(zone)
         val hourStart = nowTime.truncatedTo(java.time.temporal.ChronoUnit.HOURS).toInstant().toEpochMilli()
         return forDay(data, nowTime.toLocalDate()).filter {
-            it.start >= hourStart || it.start + it.durationMinutes * 60_000L > now
+            !it.done && (it.start >= hourStart || it.start + it.durationMinutes * 60_000L > now)
         }
     }
 }
