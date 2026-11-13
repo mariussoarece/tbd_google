@@ -21,15 +21,17 @@ internal object Storage {
         put("monthlyTasks", arr(d.monthlyTasks) {
             JSONObject().put("id", it.id).put("title", it.title).put("price", it.price)
                 .putOpt("dayOfMonth", it.dayOfMonth).put("hour", it.hour).put("minute", it.minute)
-                .putOpt("paidMonth", it.paidMonth)
+                .putOpt("paidMonth", it.paidMonth).put("isCompleted", it.isCompleted)
         })
         put("groceryItems", arr(d.groceryItems) {
             JSONObject().put("id", it.id).put("name", it.name).put("isBought", it.isBought)
         })
         put("projects", arr(d.projects) { p ->
             JSONObject().put("id", p.id).put("title", p.title).put("isCompleted", p.isCompleted)
+                .putOpt("startDate", p.startDate).putOpt("endDate", p.endDate)
                 .put("subtasks", arr(p.subtasks) {
                     JSONObject().put("id", it.id).put("title", it.title).put("isCompleted", it.isCompleted)
+                        .putOpt("startDate", it.startDate).putOpt("endDate", it.endDate)
                 })
         })
         put("activities", arr(d.activities) {
@@ -88,6 +90,7 @@ internal object Storage {
                 hour = it.optInt("hour", 10),
                 minute = it.optInt("minute", 0),
                 paidMonth = it.optStringOrNull("paidMonth"),
+                isCompleted = it.optBoolean("isCompleted"),
             )
         },
         groceryItems = o.objects("groceryItems").map {
@@ -98,8 +101,16 @@ internal object Storage {
                 id = p.getString("id"),
                 title = p.getString("title"),
                 isCompleted = p.optBoolean("isCompleted"),
+                startDate = p.optLongOrNull("startDate"),
+                endDate = p.optLongOrNull("endDate"),
                 subtasks = p.objects("subtasks").map {
-                    Subtask(it.getString("id"), it.getString("title"), it.optBoolean("isCompleted"))
+                    Subtask(
+                        id = it.getString("id"),
+                        title = it.getString("title"),
+                        isCompleted = it.optBoolean("isCompleted"),
+                        startDate = it.optLongOrNull("startDate"),
+                        endDate = it.optLongOrNull("endDate"),
+                    )
                 },
             )
         },
@@ -158,6 +169,9 @@ internal fun JSONObject.objects(key: String): List<JSONObject> {
 
 internal fun JSONObject.optStringOrNull(key: String): String? =
     if (has(key) && !isNull(key)) getString(key) else null
+
+internal fun JSONObject.optDoubleOrNull(key: String): Double? =
+    if (has(key) && !isNull(key)) getDouble(key) else null
 
 internal fun JSONObject.optIntOrNull(key: String): Int? =
     if (has(key) && !isNull(key)) getInt(key) else null

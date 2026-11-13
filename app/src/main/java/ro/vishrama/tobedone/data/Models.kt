@@ -52,6 +52,8 @@ data class MonthlyTask(
     val minute: Int = 0,
     /** Month it was last marked as done, e.g. "2026-11". Done again next month. */
     val paidMonth: String? = null,
+    /** Finished for good: moved to Completed, no reminders, not in the totals. */
+    val isCompleted: Boolean = false,
 ) {
     fun isPaid(month: java.time.YearMonth): Boolean = paidMonth == month.toString()
 }
@@ -68,6 +70,9 @@ data class Subtask(
     val id: String = newId(),
     val title: String,
     val isCompleted: Boolean = false,
+    /** Optional start and end (epoch ms); a notification at each while the subtask is open. */
+    val startDate: Long? = null,
+    val endDate: Long? = null,
 )
 
 /** Projects (iOS OtherTaskModel) */
@@ -76,6 +81,9 @@ data class Project(
     val title: String,
     val subtasks: List<Subtask> = emptyList(),
     val isCompleted: Boolean = false,
+    /** Optional start and end (epoch ms); a notification at each while the project is open. */
+    val startDate: Long? = null,
+    val endDate: Long? = null,
 )
 
 /** Daily Routine activity (iOS ActivityItem). [date] = start, epoch milliseconds. */

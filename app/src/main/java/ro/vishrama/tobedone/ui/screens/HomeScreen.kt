@@ -102,8 +102,10 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
     // Latest journal mood, e.g. "🙂"
     val journalText = data.journalEntries.maxByOrNull { it.date }?.mood?.emoji
 
-    val monthlyText = if (data.monthlyTasks.isEmpty()) null
-    else "${compactNumber(data.monthlyTasks.sumOf { it.price })} ${settings.currency}"
+    // Active expenses only; completed ones are not counted (same as the Monthly screen)
+    val activeMonthly = data.monthlyTasks.filter { !it.isCompleted }
+    val monthlyText = if (activeMonthly.isEmpty()) null
+    else "${compactNumber(activeMonthly.sumOf { it.price })} ${settings.currency}"
 
     val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
     val recentConfidence = data.confidenceEntries.filter { it.date >= weekAgo }
@@ -248,9 +250,9 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
                 RowDivider(58.dp)
                 HomeRow("Confidence", Icons.Filled.Favorite, IOS.Pink, confidenceText) { onOpen(Screen.CONFIDENCE) }
                 RowDivider(58.dp)
-                HomeRow("Focus Test", Icons.Filled.Visibility, IOS.Blue, focusText) { onOpen(Screen.FOCUS) }
+                HomeRow("Journalling", Icons.Filled.AutoStories, IOS.Orange, journalText) { onOpen(Screen.JOURNAL) }
                 RowDivider(58.dp)
-                HomeRow("Journaling", Icons.Filled.AutoStories, IOS.Orange, journalText) { onOpen(Screen.JOURNAL) }
+                HomeRow("Focus Test", Icons.Filled.Visibility, IOS.Blue, focusText) { onOpen(Screen.FOCUS) }
             }
         }
 

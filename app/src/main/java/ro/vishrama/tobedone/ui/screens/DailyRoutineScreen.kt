@@ -1,5 +1,8 @@
 package ro.vishrama.tobedone.ui.screens
 
+import ro.vishrama.tobedone.ui.SectionFooter
+import ro.vishrama.tobedone.ui.AddedConfirmation
+import ro.vishrama.tobedone.ui.EditDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -120,6 +123,10 @@ fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit, startWeekly: Boolean
     var weekStart by rememberSaveable { mutableStateOf(weekStartOf(today).toEpochDay()) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var detailId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editId by rememberSaveable { mutableStateOf<String?>(null) }   // "hold to edit"
+    var toast by remember { mutableStateOf("") }
+    var toastCount by remember { mutableIntStateOf(0) }
+    fun say(text: String) { toast = text; toastCount++ }
     var markerKey by rememberSaveable { mutableStateOf<String?>(null) }   // "TASK:id" or "MONTHLY:id"
 
     val monthDate = LocalDate.ofEpochDay(month)
@@ -180,8 +187,9 @@ fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit, startWeekly: Boolean
                 }
             }
             groupedList(dayItems, { it.id }, emptyText = "No activities. Add one with the Add Activity button.", onDelete = { store.deleteActivity(it.id) }) { a ->
-                ActivityRow(a) { store.toggleActivity(a.id) }
+                ActivityRow(a, onToggle = { store.toggleActivity(a.id) }, onEdit = { editId = a.id })
             }
+            if (dayItems.isNotEmpty()) item { SectionFooter("Tap to tick off, hold to edit, swipe left to delete.") }
             item { ExportImportButtons(io, "Activities") }
         } else {
             item {
@@ -221,7 +229,11 @@ fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit, startWeekly: Boolean
             defaultDay = selectedDate,
             existing = data.activities,
             onDismiss = { showAdd = false },
-            onSave = { store.addActivities(it); showAdd = false },
+            onSave = {
+                store.addActivities(it)
+                showAdd = false
+                say(if (it.size == 1) "Activity added" else "${it.size} activities added")
+            },
         )
     }
 
@@ -277,15 +289,121 @@ fun DailyRoutineScreen(store: AppStore, onBack: () -> Unit, startWeekly: Boolean
                     Text(if (a.isCompleted) "Mark not done" else "Mark done")
                 }
             },
-            dismissButton = { TextButton(onClick = { detailId = null }) { Text("Close") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { editId = a.id; detailId = null }) { Text("Edit") }
+                    TextButton(onClick = { detailId = null }) { Text("Close") }
+                }
+            },
+        )
+    }
+
+    data.activities.firstOrNull { it.id == editId }?.let { a ->
+        EditActivityDialog(
+            a,
+            repeats = store.seriesSize(a.id) > 1,
+            onDismiss = { editId = null },
+        ) { scope, name, details, start, duration, reminder ->
+            val n = store.editActivity(a.id, scope, name, details, start, duration, reminder)
+            editId = null
+            say(if (n == 1) "Activity saved" else "$n activities saved")
+        }
+    }
+
+    AddedConfirmation(toast, toastCount)
+}
+
+/**
+ * Edits one activity. For a repeating activity, Save asks: only this one,
+ * this and the following ones, or all in the series (same as iOS).
+ */
+@Composable
+private fun EditActivityDialog(
+    a: Activity,
+    repeats: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (AppStore.EditScope, String, String, Long, Int, Int?) -> Unit,
+) {
+    var name by rememberSaveable(a.id) { mutableStateOf(a.name) }
+    var details by rememberSaveable(a.id) { mutableStateOf(a.details) }
+    var date by rememberSaveable(a.id) { mutableStateOf(a.date) }
+    var duration by rememberSaveable(a.id) { mutableIntStateOf(a.durationMinutes) }
+    var remind by rememberSaveable(a.id) { mutableStateOf((a.reminderMinutes ?: 0) > 0) }
+    var remindBefore by rememberSaveable(a.id) { mutableIntStateOf(a.reminderMinutes ?: 30) }
+    var askScope by rememberSaveable(a.id) { mutableStateOf(false) }
+    val reminder = if (remind && remindBefore > 0) remindBefore else null
+
+    EditDialog(
+        "Edit Activity",
+        canSave = name.isNotBlank() && (!remind || remindBefore > 0),
+        onDismiss = onDismiss,
+        onSave = {
+            if (repeats) {
+                askScope = true
+            } else {
+                onSave(AppStore.EditScope.THIS_ONE, name, details, date, duration, reminder)
+            }
+        },
+        footer = if (repeats) "This activity repeats. When you save, you can change only this day, this and the following days, or all of them." else null,
+    ) {
+        FieldRow(name, { name = it }, "Name")
+        RowDivider()
+        FieldRow(details, { details = it }, "Description", singleLine = false)
+        RowDivider()
+        DateTimeRow("Date", toLocalDateTime(date), { date = toMillis(it) })
+        RowDivider()
+        GroupRow {
+            Text("Duration", fontSize = 17.sp, modifier = Modifier.weight(1f))
+            Text("$duration min", fontSize = 17.sp)
+            Stepper(onMinus = { duration = (duration - 5).coerceAtLeast(0) }, onPlus = { duration = (duration + 5).coerceAtMost(480) })
+        }
+        RowDivider()
+        ReminderRows(remind, { remind = it }, toLocalDateTime(date), remindBefore) { remindBefore = it }
+    }
+
+    if (askScope) {
+        AlertDialog(
+            onDismissRequest = { askScope = false },
+            title = { Text("This activity repeats") },
+            text = {
+                Column {
+                    Text("Which days should change?")
+                    Spacer(Modifier.height(12.dp))
+                    ScopeOption("Only this one", "Just this day.") {
+                        askScope = false; onSave(AppStore.EditScope.THIS_ONE, name, details, date, duration, reminder)
+                    }
+                    ScopeOption("This and following", "This day and the later ones. Past ones you already ticked off stay unchanged, so your history and Confidence scores stay accurate.") {
+                        askScope = false; onSave(AppStore.EditScope.FOLLOWING, name, details, date, duration, reminder)
+                    }
+                    ScopeOption("All in the series", "Every one, including past ones.") {
+                        askScope = false; onSave(AppStore.EditScope.ALL, name, details, date, duration, reminder)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { askScope = false }) { Text("Cancel") } },
         )
     }
 }
 
 @Composable
-private fun ActivityRow(a: Activity, onToggle: () -> Unit) {
+private fun ScopeOption(title: String, description: String, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+    ) {
+        Text(title, fontSize = 17.sp, color = IOS.Blue, fontWeight = FontWeight.SemiBold)
+        Text(description, fontSize = 13.sp, color = LocalGrouped.current.secondaryText)
+    }
+}
+
+@Composable
+private fun ActivityRow(a: Activity, onToggle: () -> Unit, onEdit: () -> Unit) {
     val g = LocalGrouped.current
-    GroupRow {
+    GroupRow(onClick = onToggle, onLongClick = onEdit) {
         CheckCircle(a.isCompleted, onToggle)
         Text(formatTime(toLocalDateTime(a.date).toLocalTime()), fontSize = 12.sp, color = g.secondaryText)
         Column(Modifier.weight(1f)) {

@@ -49,6 +49,17 @@ activities left, things to buy) and three groups, each opening its own screen:
 (the same tasks as the iPhone app's screenshots, plus Shopping and Journaling). Your own data is not used or changed.
 The PNG files go to "ToBeDone Android Screenshots" on your Desktop.
 
+**New in 2.7** (same as the iOS `tobedone` branch)
+- **Hold any row to edit it**: To Do, Monthly Expenses, Projects and subtasks, Shopping, Grocery, Daily Routine.
+- **Projects and subtasks** have an optional start and end date, with a notification at each while they're open.
+- **Repeating activities**: Save asks *Only this one*, *This and following* (ticked-off past days stay as they were)
+  or *All in the series*.
+- **Monthly Expenses**: tap = paid this month, hold = edit, swipe left = Complete / Delete; a Completed section;
+  totals for active expenses and "Still to pay this month"; the price can't be empty when editing.
+- **Shopping**: tap opens **Final Price** ("Change it if you paid a different amount, then tap Complete").
+- Hints on every list ("tap to complete, hold to edit"), short confirmations after adding and saving.
+- Home: Journalling comes before Focus Test.
+
 **Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),
 daily summary notification (default 21:00) and activity-start notifications.
 
@@ -77,7 +88,7 @@ play-store/icon-512.png    the 512×512 icon Play Console asks for
 ```
 
 Package name / application ID: `ro.vishrama.tobedone` (same as the iOS bundle ID).
-Version: `versionName 2.6`, `versionCode 9`. Target SDK 36 (Android 16), which Google Play
+Version: `versionName 2.7`, `versionCode 10`. Target SDK 36 (Android 16), which Google Play
 requires for new apps and updates; min SDK 26 (Android 8.0).
 
 ## 1. Open and run it

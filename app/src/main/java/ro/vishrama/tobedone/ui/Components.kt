@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package ro.vishrama.tobedone.ui
 
@@ -6,7 +6,23 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -209,6 +225,7 @@ fun RowDivider(startIndent: Dp = 16.dp) {
 fun GroupRow(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,   // "hold to edit"
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
@@ -216,7 +233,13 @@ fun GroupRow(
             .fillMaxWidth()
             .heightIn(min = 46.dp)
             .background(LocalGrouped.current.card)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                when {
+                    onLongClick != null -> Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)
+                    onClick != null -> Modifier.clickable(onClick = onClick)
+                    else -> Modifier
+                }
+            )
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -683,4 +706,136 @@ fun AddedConfirmation(text: String, trigger: Int) {
 @Composable
 fun ErrorRow(text: String) {
     GroupRow { Text(text, color = IOS.Red, fontSize = 14.sp) }
+}
+
+
+// =====================================================================
+//  Swipe left to show buttons (Monthly Expenses: Complete and Delete)
+// =====================================================================
+
+class SwipeAction(val label: String, val icon: ImageVector, val color: Color, val onClick: () -> Unit)
+
+/** Drag a row to the left to reveal [actions] (like iOS swipe actions). Tapping one closes the row. */
+@Composable
+fun SwipeActionsRow(actions: List<SwipeAction>, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    val buttonWidth = 84.dp
+    val maxReveal = with(density) { (buttonWidth * actions.size).toPx() }
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+
+    Box(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
+            actions.forEach { a ->
+                Column(
+                    Modifier
+                        .width(buttonWidth)
+                        .fillMaxHeight()
+                        .background(a.color)
+                        .clickable {
+                            scope.launch { offset.animateTo(0f) }
+                            a.onClick()
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(a.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Text(a.label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+        Box(
+            Modifier
+                .offset { IntOffset(offset.value.roundToInt(), 0) }
+                .pointerInput(maxReveal) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch { offset.animateTo(if (offset.value < -maxReveal / 2) -maxReveal else 0f) }
+                        },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        scope.launch { offset.snapTo((offset.value + dragAmount).coerceIn(-maxReveal, 0f)) }
+                    }
+                },
+        ) { content() }
+    }
+}
+
+// =====================================================================
+//  Start and end dates (Projects and subtasks)
+// =====================================================================
+
+/** Default times, as on iOS: start today at 9:00, end in a week at 18:00. */
+fun defaultStart(): Long = toMillis(LocalDate.now(AppStore.zone()).atTime(9, 0))
+fun defaultEnd(): Long = toMillis(LocalDate.now(AppStore.zone()).plusDays(7).atTime(18, 0))
+
+/** "Start date" and "End date" switches, each with a date & time. Put inside a [GroupCard]. */
+@Composable
+fun StartEndRows(
+    hasStart: Boolean, onHasStart: (Boolean) -> Unit, start: Long, onStart: (Long) -> Unit,
+    hasEnd: Boolean, onHasEnd: (Boolean) -> Unit, end: Long, onEnd: (Long) -> Unit,
+) {
+    SwitchRow("Start date", hasStart, onHasStart)
+    if (hasStart) {
+        RowDivider()
+        DateTimeRow("Starts", toLocalDateTime(start), { onStart(toMillis(it)) })
+    }
+    RowDivider()
+    SwitchRow("End date", hasEnd, onHasEnd)
+    if (hasEnd) {
+        RowDivider()
+        DateTimeRow("Ends", toLocalDateTime(end), { onEnd(toMillis(it)) })
+        if (hasStart && end < start) {
+            GroupRow { Text("The end is before the start – it will be set to the start.", color = IOS.Red, fontSize = 13.sp) }
+        }
+    }
+}
+
+@Composable
+fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    GroupRow {
+        Text(label, fontSize = 17.sp, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedTrackColor = IOS.Green))
+    }
+}
+
+/** "15 Nov, 09:00 – 30 Nov, 18:00", "From 15 Nov, 09:00", "Until 30 Nov, 18:00", or null. */
+fun dateRangeText(start: Long?, end: Long?): String? {
+    val f = DateTimeFormatter.ofPattern("d MMM, HH:mm", java.util.Locale.getDefault())
+    fun t(ms: Long) = toLocalDateTime(ms).format(f)
+    return when {
+        start != null && end != null -> "${t(start)} – ${t(end)}"
+        start != null -> "From ${t(start)}"
+        end != null -> "Until ${t(end)}"
+        else -> null
+    }
+}
+
+// =====================================================================
+//  Edit window: Cancel / Save around a form (hold a row to open one)
+// =====================================================================
+
+@Composable
+fun EditDialog(
+    title: String,
+    canSave: Boolean,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+    footer: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                GroupCard(content = content)
+                if (footer != null) {
+                    Text(footer, fontSize = 13.sp, color = LocalGrouped.current.secondaryText, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onSave, enabled = canSave) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }

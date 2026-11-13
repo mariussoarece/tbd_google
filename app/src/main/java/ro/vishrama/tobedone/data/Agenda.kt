@@ -32,7 +32,7 @@ object Agenda {
             items += AgendaItem(AgendaKind.TASK, it.id, it.title, it.dueAt, done = it.isCompleted)
         }
 
-        data.monthlyTasks.filter { it.dayOfMonth == day.dayOfMonth }.forEach {
+        data.monthlyTasks.filter { !it.isCompleted && it.dayOfMonth == day.dayOfMonth }.forEach {
             val start = day.atTime(it.hour, it.minute).atZone(zone).toInstant().toEpochMilli()
             items += AgendaItem(
                 AgendaKind.MONTHLY, it.id, it.title, start, price = it.price,

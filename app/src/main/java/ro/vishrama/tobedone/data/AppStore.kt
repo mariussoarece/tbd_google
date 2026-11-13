@@ -55,6 +55,15 @@ class AppStore private constructor(private val appContext: Context) {
         it.copy(tasks = it.tasks + t)
     }
 
+    fun editTask(id: String, title: String, dueAt: Long, priority: Priority, reminderMinutes: Int?) = mutate(refresh = true) { d ->
+        d.copy(tasks = d.tasks.map {
+            if (it.id == id) it.copy(
+                title = title.trim(), dueAt = dueAt / 60_000L * 60_000L, priority = priority,
+                reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
+            ) else it
+        })
+    }
+
     fun toggleTask(id: String) = mutate(refresh = true) { d ->
         d.copy(tasks = d.tasks.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it })
     }
@@ -85,6 +94,12 @@ class AppStore private constructor(private val appContext: Context) {
                 val done = !it.isCompleted
                 it.copy(isCompleted = done, completedAt = if (done) System.currentTimeMillis() else null)
             } else it
+        })
+    }
+
+    fun editShoppingItem(id: String, name: String, price: Double, priority: Priority) = mutate { d ->
+        d.copy(shoppingItems = d.shoppingItems.map {
+            if (it.id == id) it.copy(name = name.trim(), price = price, priority = priority) else it
         })
     }
 
@@ -119,6 +134,11 @@ class AppStore private constructor(private val appContext: Context) {
         })
     }
 
+    /** Finished for good (moves to Completed), or back to the active list. */
+    fun toggleMonthlyCompleted(id: String) = mutate(refresh = true) { d ->
+        d.copy(monthlyTasks = d.monthlyTasks.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it })
+    }
+
     fun deleteMonthlyTask(id: String) = mutate(refresh = true) { d ->
         d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id })
     }
@@ -131,21 +151,40 @@ class AppStore private constructor(private val appContext: Context) {
         d.copy(groceryItems = d.groceryItems.map { if (it.id == id) it.copy(isBought = !it.isBought) else it })
     }
 
+    fun editGroceryItem(id: String, name: String) = mutate { d ->
+        d.copy(groceryItems = d.groceryItems.map { if (it.id == id) it.copy(name = name.trim()) else it })
+    }
+
     fun deleteGroceryItem(id: String) = mutate { d -> d.copy(groceryItems = d.groceryItems.filterNot { it.id == id }) }
 
     // ================= Projects =================
 
-    fun addProject(title: String) = mutate { it.copy(projects = it.projects + Project(title = title.trim())) }
+    fun addProject(title: String, start: Long? = null, end: Long? = null) = mutate(refresh = true) {
+        it.copy(projects = it.projects + Project(title = title.trim(), startDate = start, endDate = clampEnd(start, end)))
+    }
 
-    fun toggleProject(id: String) = mutate { d ->
+    fun editProject(id: String, title: String, start: Long?, end: Long?) = updateProject(id) {
+        it.copy(title = title.trim(), startDate = start, endDate = clampEnd(start, end))
+    }
+
+    fun toggleProject(id: String) = mutate(refresh = true) { d ->
         d.copy(projects = d.projects.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it })
     }
 
-    fun deleteProject(id: String) = mutate { d -> d.copy(projects = d.projects.filterNot { it.id == id }) }
+    fun deleteProject(id: String) = mutate(refresh = true) { d -> d.copy(projects = d.projects.filterNot { it.id == id }) }
 
-    fun addSubtask(projectId: String, title: String) = updateProject(projectId) {
-        it.copy(subtasks = it.subtasks + Subtask(title = title.trim()))
+    fun addSubtask(projectId: String, title: String, start: Long? = null, end: Long? = null) = updateProject(projectId) {
+        it.copy(subtasks = it.subtasks + Subtask(title = title.trim(), startDate = start, endDate = clampEnd(start, end)))
     }
+
+    fun editSubtask(projectId: String, subtaskId: String, title: String, start: Long?, end: Long?) = updateProject(projectId) { p ->
+        p.copy(subtasks = p.subtasks.map {
+            if (it.id == subtaskId) it.copy(title = title.trim(), startDate = start, endDate = clampEnd(start, end)) else it
+        })
+    }
+
+    /** The end can't be before the start (same as iOS). */
+    private fun clampEnd(start: Long?, end: Long?): Long? = if (end != null && start != null) maxOf(end, start) else end
 
     fun toggleSubtask(projectId: String, subtaskId: String) = updateProject(projectId) { p ->
         p.copy(subtasks = p.subtasks.map { if (it.id == subtaskId) it.copy(isCompleted = !it.isCompleted) else it })
@@ -155,7 +194,7 @@ class AppStore private constructor(private val appContext: Context) {
         p.copy(subtasks = p.subtasks.filterNot { it.id == subtaskId })
     }
 
-    private fun updateProject(id: String, block: (Project) -> Project) = mutate { d ->
+    private fun updateProject(id: String, block: (Project) -> Project) = mutate(refresh = true) { d ->
         d.copy(projects = d.projects.map { if (it.id == id) block(it) else it })
     }
 
@@ -169,6 +208,58 @@ class AppStore private constructor(private val appContext: Context) {
         val item = d.activities.firstOrNull { it.id == id } ?: return@mutate d
         val updated = d.copy(activities = d.activities.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it })
         syncConfidence(updated, setOf(dayOf(item.date)))
+    }
+
+    enum class EditScope { THIS_ONE, FOLLOWING, ALL }
+
+    /** How many activities belong to the same repeating series as [id] (1 if it doesn't repeat). */
+    fun seriesSize(id: String): Int {
+        val a = _data.value.activities.firstOrNull { it.id == id } ?: return 1
+        val sid = a.seriesId ?: return 1
+        return _data.value.activities.count { it.seriesId == sid }.coerceAtLeast(1)
+    }
+
+    /**
+     * Edits an activity – only this one, this and the following ones, or the whole series
+     * (same as iOS). A new day or time moves every chosen activity by the same number of
+     * days, at the new time. Earlier days you already ticked off stay as they were with
+     * FOLLOWING. Returns how many activities changed.
+     */
+    fun editActivity(
+        id: String, scope: EditScope, name: String, details: String,
+        newStart: Long, durationMinutes: Int, reminderMinutes: Int?,
+    ): Int {
+        var count = 0
+        mutate(refresh = true) { d ->
+            val item = d.activities.firstOrNull { it.id == id } ?: return@mutate d
+            val series = item.seriesId?.let { sid -> d.activities.filter { it.seriesId == sid } } ?: listOf(item)
+            val targets = when (scope) {
+                EditScope.THIS_ONE -> listOf(item)
+                EditScope.FOLLOWING -> series.filter { it.date >= item.date }
+                EditScope.ALL -> series
+            }.map { it.id }.toSet()
+            count = targets.size
+
+            val shift = java.time.temporal.ChronoUnit.DAYS.between(dayOf(item.date), dayOf(newStart))
+            val time = timeOf(newStart)
+            val changedDays = mutableSetOf<LocalDate>()
+            val updated = d.activities.map { a ->
+                if (a.id !in targets) a
+                else {
+                    changedDays += dayOf(a.date)
+                    val moved = dayOf(a.date).plusDays(shift).atTime(time.hour, time.minute)
+                        .atZone(zone()).toInstant().toEpochMilli()
+                    changedDays += dayOf(moved)
+                    a.copy(
+                        date = moved, name = name.trim(), details = details,
+                        durationMinutes = durationMinutes,
+                        reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
+                    )
+                }
+            }
+            syncConfidence(d.copy(activities = updated), changedDays)
+        }
+        return count
     }
 
     fun deleteActivity(id: String) = mutate(refresh = true) { d ->

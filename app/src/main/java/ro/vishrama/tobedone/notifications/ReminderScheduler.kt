@@ -21,6 +21,7 @@ import java.time.ZonedDateTime
  *    tasks and Daily Routine activities. Nothing is sent if everything is done.
  *  • Activity start: a reminder when each Daily Routine activity begins.
  *  • Monthly expense: a reminder every month on its day (1–28) and time.
+ *  • Projects and subtasks: at their start and end date while still open.
  *  • Optional early reminder for To Do tasks and Daily Routine activities,
  *    set when creating them ("… is starting in 2 days and 30 min").
  *
@@ -39,6 +40,10 @@ object ReminderScheduler {
     const val KIND_MONTHLY = "monthly"
     const val KIND_TASK_EARLY = "taskearly"
     const val KIND_WIDGET_HOUR = "widgethour"
+    const val KIND_PROJECT_START = "projectstart"
+    const val KIND_PROJECT_END = "projectend"
+    const val KIND_SUBTASK_START = "subtaskstart"
+    const val KIND_SUBTASK_END = "subtaskend"
     const val KIND_ACTIVITY_EARLY = "activityearly"
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
@@ -98,7 +103,7 @@ object ReminderScheduler {
         }
 
         // Monthly expenses: the next time their day + time comes round
-        data.monthlyTasks.forEach { m ->
+        data.monthlyTasks.filter { !it.isCompleted }.forEach { m ->
             val day = m.dayOfMonth ?: return@forEach
             wanted["$KIND_MONTHLY:${m.id}"] = nextMonthly(day, m.hour, m.minute, now)
         }
@@ -118,6 +123,16 @@ object ReminderScheduler {
             .sortedBy { it.second }
             .take(MAX_ACTIVITY_ALARMS)
             .forEach { (a, at) -> wanted["$KIND_ACTIVITY_EARLY:${a.id}"] = at }
+
+        // Projects and their subtasks: at the start and at the end, while not completed
+        data.projects.filter { !it.isCompleted }.forEach { p ->
+            p.startDate?.takeIf { it > now }?.let { wanted["$KIND_PROJECT_START:${p.id}"] = it }
+            p.endDate?.takeIf { it > now }?.let { wanted["$KIND_PROJECT_END:${p.id}"] = it }
+            p.subtasks.filter { !it.isCompleted }.forEach { s ->
+                s.startDate?.takeIf { it > now }?.let { wanted["$KIND_SUBTASK_START:${s.id}"] = it }
+                s.endDate?.takeIf { it > now }?.let { wanted["$KIND_SUBTASK_END:${s.id}"] = it }
+            }
+        }
 
         // Redraw the widget at the start of every hour, so it always begins at the current hour
         val nextHour = java.time.Instant.ofEpochMilli(now).atZone(AppStore.zone())

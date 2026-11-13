@@ -52,8 +52,11 @@ object ExportImport {
             }))
             Kind.PROJECTS -> o.put("tasksWithSubtasks", JSONArray(data.projects.filter { !it.isCompleted }.map { p ->
                 JSONObject().put("id", p.id).put("title", p.title).put("isCompleted", false)
+                    .putOpt("startDate", p.startDate?.let { toApple(it) }).putOpt("endDate", p.endDate?.let { toApple(it) })
                     .put("subtasks", JSONArray(p.subtasks.map {
                         JSONObject().put("id", it.id).put("title", it.title).put("isCompleted", it.isCompleted)
+                            .putOpt("startDate", it.startDate?.let { d -> toApple(d) })
+                            .putOpt("endDate", it.endDate?.let { d -> toApple(d) })
                     }))
             }))
             Kind.ACTIVITIES -> Unit
@@ -138,8 +141,16 @@ object ExportImport {
                     id = p.optString("id", newId()),
                     title = p.getString("title"),
                     isCompleted = p.optBoolean("isCompleted"),
+                    startDate = p.optDoubleOrNull("startDate")?.let { fromApple(it) },
+                    endDate = p.optDoubleOrNull("endDate")?.let { fromApple(it) },
                     subtasks = p.objects("subtasks").map {
-                        Subtask(it.optString("id", newId()), it.getString("title"), it.optBoolean("isCompleted"))
+                        Subtask(
+                            id = it.optString("id", newId()),
+                            title = it.getString("title"),
+                            isCompleted = it.optBoolean("isCompleted"),
+                            startDate = it.optDoubleOrNull("startDate")?.let { d -> fromApple(d) },
+                            endDate = it.optDoubleOrNull("endDate")?.let { d -> fromApple(d) },
+                        )
                     },
                 )
             },

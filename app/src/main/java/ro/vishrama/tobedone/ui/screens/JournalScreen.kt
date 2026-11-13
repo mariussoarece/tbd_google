@@ -130,7 +130,7 @@ fun JournalScreen(store: AppStore, onBack: () -> Unit) {
         it.body.text.contains(q, ignoreCase = true) || it.mood.label.contains(q, ignoreCase = true)
     }
 
-    DetailScreen("Journaling", IOS.Orange, onBack) {
+    DetailScreen("Journalling", IOS.Orange, onBack) {
         // New Entry: pencil-on-paper icon in blue to the left, then the blue button with white text
         item {
             Row(

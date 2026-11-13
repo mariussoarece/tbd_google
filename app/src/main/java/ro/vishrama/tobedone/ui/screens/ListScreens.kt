@@ -1,5 +1,16 @@
 package ro.vishrama.tobedone.ui.screens
 
+import ro.vishrama.tobedone.data.DueTask
+import ro.vishrama.tobedone.ui.EditDialog
+import ro.vishrama.tobedone.ui.SwipeAction
+import ro.vishrama.tobedone.ui.SwipeActionsRow
+import ro.vishrama.tobedone.ui.groupClip
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -101,8 +112,11 @@ fun TodoScreen(store: AppStore, onBack: () -> Unit) {
     val sorted = data.tasks.sortedBy { it.dueAt }
     val open = sorted.filter { !it.isCompleted }
     val done = sorted.filter { it.isCompleted }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var saved by remember { mutableIntStateOf(0) }
 
     AddedConfirmation("Task added", added)
+    AddedConfirmation("Task saved", saved)
 
     DetailScreen("To Do Tasks", IOS.Blue, onBack) {
         item { SectionHeader("Add New Task") }
@@ -120,9 +134,9 @@ fun TodoScreen(store: AppStore, onBack: () -> Unit) {
             }
         }
 
-        item { SectionHeader("Due Tasks") }
-        groupedList(open, { it.id }, emptyText = "No tasks due. Tap a task to mark it done.", onDelete = { store.deleteTask(it.id) }) { t ->
-            GroupRow(onClick = { store.toggleTask(t.id) }) {
+        item { SectionHeader("Due Tasks – tap to complete, hold to edit") }
+        groupedList(open, { it.id }, emptyText = "No tasks due.", onDelete = { store.deleteTask(it.id) }) { t ->
+            GroupRow(onClick = { store.toggleTask(t.id) }, onLongClick = { editingId = t.id }) {
                 Column(Modifier.weight(1f)) {
                     Text(t.title, fontSize = 17.sp)
                     Text("Due: ${formatDateTime(t.dueAt)}", fontSize = 12.sp, color = g.secondaryText)
@@ -138,7 +152,7 @@ fun TodoScreen(store: AppStore, onBack: () -> Unit) {
 
         item { SectionHeader("Completed Tasks") }
         groupedList(done, { it.id }, emptyText = "Swipe left on a completed task to delete it.", onDelete = { store.deleteTask(it.id) }) { t ->
-            GroupRow(onClick = { store.toggleTask(t.id) }) {
+            GroupRow(onClick = { store.toggleTask(t.id) }, onLongClick = { editingId = t.id }) {
                 Column(Modifier.weight(1f)) {
                     Text(t.title, fontSize = 17.sp, textDecoration = TextDecoration.LineThrough, color = g.secondaryText)
                     Text("Due: ${formatDateTime(t.dueAt)}", fontSize = 12.sp, color = g.secondaryText)
@@ -146,6 +160,37 @@ fun TodoScreen(store: AppStore, onBack: () -> Unit) {
                 PriorityBadge(t.priority)
             }
         }
+    }
+
+    data.tasks.firstOrNull { it.id == editingId }?.let { t ->
+        EditTaskDialog(t, onDismiss = { editingId = null }) { title2, due, pr, rem ->
+            store.editTask(t.id, title2, due, pr, rem)
+            editingId = null
+            saved++
+        }
+    }
+}
+
+@Composable
+private fun EditTaskDialog(t: DueTask, onDismiss: () -> Unit, onSave: (String, Long, Priority, Int?) -> Unit) {
+    var title by rememberSaveable(t.id) { mutableStateOf(t.title) }
+    var due by rememberSaveable(t.id) { mutableStateOf(t.dueAt) }
+    var priority by rememberSaveable(t.id) { mutableStateOf(t.priority) }
+    var remind by rememberSaveable(t.id) { mutableStateOf((t.reminderMinutes ?: 0) > 0) }
+    var remindBefore by rememberSaveable(t.id) { mutableIntStateOf(t.reminderMinutes ?: 30) }
+    EditDialog(
+        "Edit Task",
+        canSave = title.isNotBlank() && (!remind || remindBefore > 0),
+        onDismiss = onDismiss,
+        onSave = { onSave(title, due, priority, if (remind) remindBefore else null) },
+    ) {
+        FieldRow(title, { title = it }, "Task Title")
+        RowDivider()
+        DateTimeRow("Due", toLocalDateTime(due), { due = toMillis(it) })
+        RowDivider()
+        PriorityRow(priority) { priority = it }
+        RowDivider()
+        ReminderRows(remind, { remind = it }, toLocalDateTime(due), remindBefore) { remindBefore = it }
     }
 }
 
@@ -171,6 +216,10 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     val canAdd = title.isNotBlank()
     var priceMissing by rememberSaveable { mutableStateOf(false) }
+    var added by remember { mutableIntStateOf(0) }
+    var toast by remember { mutableStateOf("") }
+    var toastCount by remember { mutableIntStateOf(0) }
+    fun say(text: String) { toast = text; toastCount++ }
 
     fun add() {
         if (!canAdd) return
@@ -178,6 +227,7 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
         if (p == null) { priceMissing = true; return }
         priceMissing = false
         store.addMonthlyTask(title, p, day, hour, minute)
+        added++
         title = ""
         price = ""
         day = todayDay
@@ -187,6 +237,12 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
 
     // Sorted by day of the month, then time; items without a day at the end
     val sorted = data.monthlyTasks.sortedWith(compareBy({ it.dayOfMonth ?: 99 }, { it.hour * 60 + it.minute }))
+    val active = sorted.filter { !it.isCompleted }
+    val completed = sorted.filter { it.isCompleted }
+    val thisMonth = java.time.YearMonth.now(AppStore.zone())
+
+    AddedConfirmation("Expense added", added)
+    AddedConfirmation(toast, toastCount)
 
     DetailScreen("Monthly Expenses", IOS.Orange, onBack) {
         item { SectionHeader("Add Monthly Expense") }
@@ -200,46 +256,58 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
                 PickerRow("Day of month", day, (1..28).toList(), { "$it" }) { day = it }
                 RowDivider()
                 GroupRow {
-                    Text("Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Text("Notification Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
                     Chip(formatTime(LocalTime.of(hour, minute))) { pickTime = true }
                 }
                 RowDivider()
-                AddButtonRow("Add", enabled = canAdd, onClick = ::add)
+                AddButtonRow("Add Task", enabled = canAdd, onClick = ::add)
             }
         }
         item {
             SectionFooter("You get a reminder every month on this day and time. Days go up to 28 so the reminder comes in every month.")
         }
 
-        item { SectionHeader("Monthly Expenses - Tap to edit, swipe to delete") }
-        groupedList(sorted, { it.id }, emptyText = "No monthly expenses yet.", onDelete = { store.deleteMonthlyTask(it.id) }) { m ->
-            GroupRow(onClick = { editingId = m.id }) {
-                Column(Modifier.weight(1f)) {
-                    Text(m.title, fontSize = 17.sp)
-                    Text(
-                        m.dayOfMonth?.let { "Every month on day $it at ${formatTime(LocalTime.of(m.hour, m.minute))}" }
-                            ?: "No day set – tap to add one",
-                        fontSize = 12.sp, color = g.secondaryText,
-                    )
-                    if (m.isPaid(java.time.YearMonth.now(AppStore.zone()))) {
-                        Text("✓ Done for this month", fontSize = 12.sp, color = IOS.Green)
-                    }
-                }
-                Text("${money(m.price)} $cur", fontSize = 17.sp, color = g.secondaryText)
-            }
-        }
+        item { SectionHeader("Monthly Expenses – tap to mark as paid, hold to edit") }
+        monthlyList(active, thisMonth, cur,
+            onTap = { m ->
+                store.toggleMonthlyPaid(m.id)
+                if (!m.isPaid(thisMonth)) say("Paid this month")
+            },
+            onHold = { editingId = it.id },
+            onComplete = { store.toggleMonthlyCompleted(it.id); say("Completed") },
+            onDelete = { store.deleteMonthlyTask(it.id) },
+            emptyText = "No monthly expenses yet.",
+        )
+        item { SectionFooter("Swipe left on an expense for Complete (finished for good) or Delete.") }
 
-        item { Spacer(Modifier.padding(top = 20.dp)) }
+        item { Spacer(Modifier.padding(top = 12.dp)) }
         item {
             GroupCard {
+                // Every active expense; completed ones are not counted
                 GroupRow {
                     Text("Total:", fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.weight(1f))
-                    Text("${money(data.monthlyTasks.sumOf { it.price })} $cur", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = IOS.Blue)
+                    Text("${money(active.sumOf { it.price })} $cur", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = IOS.Blue)
+                }
+                RowDivider()
+                // The ones marked as paid this month are deducted
+                GroupRow {
+                    Text("Still to pay this month:", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Text("${money(active.filter { !it.isPaid(thisMonth) }.sumOf { it.price })} $cur", fontSize = 17.sp, color = IOS.Orange)
                 }
             }
         }
 
         item { ExportImportButtons(io, "Expenses") }
+
+        // Finished for good: no reminders, not in the totals
+        item { SectionHeader("Completed") }
+        monthlyList(completed, thisMonth, cur,
+            onTap = {},
+            onHold = { editingId = it.id },
+            onComplete = { store.toggleMonthlyCompleted(it.id); say("Restored") },
+            onDelete = { store.deleteMonthlyTask(it.id) },
+            emptyText = "Expenses you complete appear here.",
+        )
     }
 
     if (pickTime) {
@@ -250,6 +318,62 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
         EditMonthlyDialog(m, cur, onDismiss = { editingId = null }) { t, p, d, h, min ->
             store.updateMonthlyTask(m.id, t, p, d, h, min)
             editingId = null
+        }
+    }
+}
+
+/**
+ * Monthly rows: tap = paid this month, hold = edit, swipe left = Complete / Delete
+ * (on completed ones: Restore / Delete). Completed ones are struck through.
+ */
+private fun LazyListScope.monthlyList(
+    list: List<MonthlyTask>,
+    thisMonth: java.time.YearMonth,
+    currency: String,
+    onTap: (MonthlyTask) -> Unit,
+    onHold: (MonthlyTask) -> Unit,
+    onComplete: (MonthlyTask) -> Unit,
+    onDelete: (MonthlyTask) -> Unit,
+    emptyText: String,
+) {
+    if (list.isEmpty()) {
+        item { GroupCard { GroupRow { Text(emptyText, color = LocalGrouped.current.secondaryText, fontSize = 15.sp) } } }
+        return
+    }
+    itemsIndexed(list, key = { _, m -> m.id }) { i, m ->
+        val g = LocalGrouped.current
+        Column(Modifier.groupClip(i, list.size)) {
+            if (i > 0) RowDivider()
+            val completeAction = if (m.isCompleted) {
+                SwipeAction("Restore", Icons.AutoMirrored.Filled.Undo, Color.Gray, onClick = { onComplete(m) })
+            } else {
+                SwipeAction("Complete", Icons.Filled.Check, IOS.Green, onClick = { onComplete(m) })
+            }
+            val deleteAction = SwipeAction("Delete", Icons.Filled.Delete, IOS.Red, onClick = { onDelete(m) })
+            SwipeActionsRow(listOf(completeAction, deleteAction)) {
+                GroupRow(onClick = { if (!m.isCompleted) onTap(m) }, onLongClick = { onHold(m) }) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            m.title, fontSize = 17.sp,
+                            textDecoration = if (m.isCompleted) TextDecoration.LineThrough else null,
+                            color = if (m.isCompleted) g.secondaryText else MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (!m.isCompleted) {
+                            val schedule = m.dayOfMonth?.let { "Every month on day $it at ${formatTime(LocalTime.of(m.hour, m.minute))}" }
+                            Text(
+                                when {
+                                    schedule == null -> "No day set – hold to choose one"
+                                    m.isPaid(thisMonth) -> "$schedule · ✓ paid this month"
+                                    else -> schedule
+                                },
+                                fontSize = 12.sp,
+                                color = if (schedule == null) IOS.Orange else g.secondaryText,
+                            )
+                        }
+                    }
+                    Text("${money(m.price)} $currency", fontSize = 17.sp, color = g.secondaryText)
+                }
+            }
         }
     }
 }
@@ -276,19 +400,20 @@ private fun EditMonthlyDialog(
                 FieldRow(title, { title = it }, "Title")
                 RowDivider()
                 FieldRow(price, { price = it }, "Price ($currency)", decimal = true)
+                if (parsePrice(price) == null) ErrorRow("Please enter a price")
                 RowDivider()
                 PickerRow("Day of month", day, (1..28).toList(), { "$it" }) { day = it }
                 RowDivider()
                 GroupRow {
-                    Text("Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Text("Notification Time", fontSize = 17.sp, modifier = Modifier.weight(1f))
                     Chip(formatTime(LocalTime.of(hour, minute))) { pickTime = true }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                enabled = title.isNotBlank(),
-                onClick = { onSave(title, parsePrice(price) ?: 0.0, day, hour, minute) },
+                enabled = title.isNotBlank() && parsePrice(price) != null,   // the price can't be empty
+                onClick = { parsePrice(price)?.let { p -> onSave(title, p, day, hour, minute) } },
             ) {
                 Text("Save")
             }
@@ -321,12 +446,16 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
 
     val canAdd = name.isNotBlank()
     var priceMissing by rememberSaveable { mutableStateOf(false) }
+    var added by remember { mutableIntStateOf(0) }
+    var saved by remember { mutableIntStateOf(0) }
+    var detailsId by rememberSaveable { mutableStateOf<String?>(null) }   // "hold to edit"
     fun add() {
         if (name.isBlank()) return
         val p = parsePrice(price)
         if (p == null) { priceMissing = true; return }
         priceMissing = false
         store.addShoppingItem(name, p, priority)
+        added++
         name = ""
         price = ""
     }
@@ -334,6 +463,9 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
     val open = data.shoppingItems.filter { !it.isCompleted }
     val done = data.shoppingItems.filter { it.isCompleted }
     val dateFmt = SimpleDateFormat("MM.dd.yyyy", Locale.getDefault())
+
+    AddedConfirmation("Item added", added)
+    AddedConfirmation("Item saved", saved)
 
     DetailScreen("Shopping Tasks", IOS.Red, onBack) {
         item { SectionHeader("Add New Item") }
@@ -350,9 +482,9 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
             }
         }
 
-        item { SectionHeader("Shopping List") }
-        groupedList(open, { it.id }, emptyText = "Nothing to buy. Tap an item when you buy it.", onDelete = { store.deleteShoppingItem(it.id) }) { s ->
-            GroupRow(onClick = { editingId = s.id; editedPrice = money(s.price) }) {
+        item { SectionHeader("Shopping List – tap to complete, hold to edit") }
+        groupedList(open, { it.id }, emptyText = "Nothing to buy.", onDelete = { store.deleteShoppingItem(it.id) }) { s ->
+            GroupRow(onClick = { editingId = s.id; editedPrice = money(s.price) }, onLongClick = { detailsId = s.id }) {
                 Column(Modifier.weight(1f)) {
                     Text(s.name, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text("${money(s.price)} $cur", fontSize = 15.sp, color = g.secondaryText)
@@ -375,7 +507,7 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
 
         item { SectionHeader("Completed Purchases") }
         groupedList(done, { it.id }, emptyText = "Swipe left on a purchase to delete it.", onDelete = { store.deleteShoppingItem(it.id) }) { s ->
-            GroupRow(onClick = { store.toggleShoppingItem(s.id) }) {
+            GroupRow(onClick = { store.toggleShoppingItem(s.id) }, onLongClick = { detailsId = s.id }) {
                 Text(s.name, fontSize = 17.sp, textDecoration = TextDecoration.LineThrough, modifier = Modifier.weight(1f))
                 s.completedAt?.let { Text(dateFmt.format(Date(it)), fontSize = 12.sp, color = g.secondaryText) }
                 Icon(Icons.Filled.CheckCircle, contentDescription = "Bought", tint = IOS.Green)
@@ -393,15 +525,20 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
         }
     }
 
-    // "Edit Price" sheet: confirm the real price and mark as bought
+    // "Final Price": confirm what was paid and mark as bought
     val editing = data.shoppingItems.firstOrNull { it.id == editingId }
     if (editing != null) {
         AlertDialog(
             onDismissRequest = { editingId = null },
-            title = { Text("Edit Price") },
+            title = { Text("Final Price") },
             text = {
                 Column {
                     Text(editing.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Change it if you paid a different amount, then tap Complete.",
+                        fontSize = 13.sp, color = g.secondaryText,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                     Spacer(Modifier.padding(top = 12.dp))
                     OutlinedTextField(
                         value = editedPrice,
@@ -417,12 +554,35 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
                 TextButton(onClick = {
                     store.buyShoppingItem(editing.id, parsePrice(editedPrice))
                     editingId = null
-                }) { Text("Confirm") }
+                }) { Text("Complete") }
             },
             dismissButton = {
                 TextButton(onClick = { editingId = null }) { Text("Cancel", color = IOS.Red) }
             },
         )
+    }
+
+    data.shoppingItems.firstOrNull { it.id == detailsId }?.let { item ->
+        var n by rememberSaveable(item.id) { mutableStateOf(item.name) }
+        var pr by rememberSaveable(item.id) { mutableStateOf(money(item.price)) }
+        var prio by rememberSaveable(item.id) { mutableStateOf(item.priority) }
+        EditDialog(
+            "Edit Item",
+            canSave = n.isNotBlank() && parsePrice(pr) != null,
+            onDismiss = { detailsId = null },
+            onSave = {
+                parsePrice(pr)?.let { p -> store.editShoppingItem(item.id, n, p, prio) }
+                detailsId = null
+                saved++
+            },
+        ) {
+            FieldRow(n, { n = it }, "Item Name")
+            RowDivider()
+            FieldRow(pr, { pr = it }, "Price ($cur)", decimal = true)
+            if (parsePrice(pr) == null) ErrorRow("Please enter a price")
+            RowDivider()
+            PriorityRow(prio) { prio = it }
+        }
     }
 }
 
@@ -434,16 +594,23 @@ fun ShoppingScreen(store: AppStore, onBack: () -> Unit) {
 fun GroceryScreen(store: AppStore, onBack: () -> Unit) {
     val data by store.data.collectAsStateWithLifecycle()
     var name by rememberSaveable { mutableStateOf("") }
+    var added by remember { mutableIntStateOf(0) }
+    var saved by remember { mutableIntStateOf(0) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun add() {
         if (name.isBlank()) return
         store.addGroceryItem(name)
+        added++
         name = ""
     }
 
     val sorted = data.groceryItems.sortedBy { it.name.lowercase() }
     val toBuy = sorted.filter { !it.isBought }
     val bought = sorted.filter { it.isBought }
+
+    AddedConfirmation("Item added", added)
+    AddedConfirmation("Item saved", saved)
 
     DetailScreen("Grocery List", IOS.Yellow, onBack) {
         item { SectionHeader("Add Grocery Item") }
@@ -455,16 +622,16 @@ fun GroceryScreen(store: AppStore, onBack: () -> Unit) {
             }
         }
 
-        item { SectionHeader("Grocery List") }
-        groupedList(toBuy, { it.id }, emptyText = "Your grocery list is empty. Tap an item when it's in the basket.", onDelete = { store.deleteGroceryItem(it.id) }) { item ->
-            GroupRow(onClick = { store.toggleGroceryItem(item.id) }) {
+        item { SectionHeader("Grocery List – tap when bought, hold to edit") }
+        groupedList(toBuy, { it.id }, emptyText = "Your grocery list is empty.", onDelete = { store.deleteGroceryItem(it.id) }) { item ->
+            GroupRow(onClick = { store.toggleGroceryItem(item.id) }, onLongClick = { editingId = item.id }) {
                 Text(item.name, fontSize = 17.sp, modifier = Modifier.weight(1f))
             }
         }
 
         item { SectionHeader("Bought Items") }
         groupedList(bought, { it.id }, emptyText = "Swipe left on a bought item to delete it.", onDelete = { store.deleteGroceryItem(it.id) }) { item ->
-            GroupRow(onClick = { store.toggleGroceryItem(item.id) }) {
+            GroupRow(onClick = { store.toggleGroceryItem(item.id) }, onLongClick = { editingId = item.id }) {
                 Text(
                     item.name, fontSize = 17.sp,
                     textDecoration = TextDecoration.LineThrough,
@@ -472,6 +639,18 @@ fun GroceryScreen(store: AppStore, onBack: () -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
             }
+        }
+    }
+
+    data.groceryItems.firstOrNull { it.id == editingId }?.let { item ->
+        var n by rememberSaveable(item.id) { mutableStateOf(item.name) }
+        EditDialog(
+            "Edit Item",
+            canSave = n.isNotBlank(),
+            onDismiss = { editingId = null },
+            onSave = { store.editGroceryItem(item.id, n); editingId = null; saved++ },
+        ) {
+            FieldRow(n, { n = it }, "Item Name")
         }
     }
 }

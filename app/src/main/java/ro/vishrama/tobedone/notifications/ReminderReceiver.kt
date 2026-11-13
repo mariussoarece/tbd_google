@@ -48,7 +48,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
             ReminderScheduler.KIND_MONTHLY -> {
                 val m = data.monthlyTasks.firstOrNull { it.id == id }
-                if (m != null && !m.isPaid(java.time.YearMonth.now(AppStore.zone()))) {
+                if (m != null && !m.isCompleted && !m.isPaid(java.time.YearMonth.now(AppStore.zone()))) {
                     val currency = AppStore.get(context).settings.value.currency
                     val amount = if (m.price > 0) " (" + String.format("%.2f", m.price) + " $currency)" else ""
                     show(context, ReminderScheduler.CHANNEL_TASKS, "monthly:$id",
@@ -57,6 +57,34 @@ class ReminderReceiver : BroadcastReceiver() {
             }
 
             ReminderScheduler.KIND_WIDGET_HOUR -> TodayWidget.requestUpdate(context)
+
+            ReminderScheduler.KIND_PROJECT_START, ReminderScheduler.KIND_PROJECT_END -> {
+                val p = data.projects.firstOrNull { it.id == id }
+                if (p != null && !p.isCompleted) {
+                    if (kind == ReminderScheduler.KIND_PROJECT_START) {
+                        show(context, ReminderScheduler.CHANNEL_TASKS, "projectstart:$id", "Project starts", "${p.title} starts now.")
+                    } else {
+                        val open = p.subtasks.count { !it.isCompleted }
+                        val left = if (open > 0) " $open subtask" + (if (open == 1) "" else "s") + " still open." else ""
+                        show(context, ReminderScheduler.CHANNEL_TASKS, "projectend:$id", "Project deadline",
+                            "${p.title} should be finished now.$left")
+                    }
+                }
+            }
+
+            ReminderScheduler.KIND_SUBTASK_START, ReminderScheduler.KIND_SUBTASK_END -> {
+                val p = data.projects.firstOrNull { pr -> pr.subtasks.any { it.id == id } }
+                val s = p?.subtasks?.firstOrNull { it.id == id }
+                if (p != null && s != null && !p.isCompleted && !s.isCompleted) {
+                    if (kind == ReminderScheduler.KIND_SUBTASK_START) {
+                        show(context, ReminderScheduler.CHANNEL_TASKS, "subtaskstart:$id", "Subtask starts",
+                            "${s.title} (${p.title}) starts now.")
+                    } else {
+                        show(context, ReminderScheduler.CHANNEL_TASKS, "subtaskend:$id", "Subtask deadline",
+                            "${s.title} (${p.title}) should be finished now.")
+                    }
+                }
+            }
 
             ReminderScheduler.KIND_TASK_EARLY -> {
                 val t = data.tasks.firstOrNull { it.id == id }
