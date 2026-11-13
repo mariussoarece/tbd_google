@@ -458,15 +458,22 @@ fun CheckCircle(checked: Boolean, onClick: () -> Unit) {
 //  Date & time pickers
 // =====================================================================
 
-/** "Label    [Oct 30, 2026]  [14:30]" — like the iOS compact DatePicker. */
+/**
+ * The label on top and the date and time below it ("Due" over "[Nov 5, 2026] [5:28 PM]"),
+ * so it never gets squeezed in narrow windows. With an empty label only the date and time show.
+ */
 @Composable
 fun DateTimeRow(label: String, value: LocalDateTime, onChange: (LocalDateTime) -> Unit, showTime: Boolean = true) {
     var pickDate by rememberSaveable { mutableStateOf(false) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
     GroupRow {
-        Text(label, fontSize = 17.sp, modifier = Modifier.weight(1f))
-        Chip(value.toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))) { pickDate = true }
-        if (showTime) Chip(formatTime(value.toLocalTime())) { pickTime = true }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (label.isNotBlank()) Text(label, fontSize = 17.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip(value.toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))) { pickDate = true }
+                if (showTime) Chip(formatTime(value.toLocalTime())) { pickTime = true }
+            }
+        }
     }
     if (pickDate) DatePickDialog(value.toLocalDate(), { pickDate = false }) { onChange(value.with(it)) }
     if (pickTime) TimePickDialog(value.toLocalTime(), { pickTime = false }) { onChange(value.with(it)) }
@@ -769,22 +776,21 @@ fun SwipeActionsRow(actions: List<SwipeAction>, content: @Composable () -> Unit)
 fun defaultStart(): Long = toMillis(LocalDate.now(AppStore.zone()).atTime(9, 0))
 fun defaultEnd(): Long = toMillis(LocalDate.now(AppStore.zone()).plusDays(7).atTime(18, 0))
 
-/** "Start date" and "End date" switches, each with a date & time. Put inside a [GroupCard]. */
+/** "Start Date" and "End Date" switches, each with its date & time below. Put inside a [GroupCard]. */
 @Composable
 fun StartEndRows(
     hasStart: Boolean, onHasStart: (Boolean) -> Unit, start: Long, onStart: (Long) -> Unit,
     hasEnd: Boolean, onHasEnd: (Boolean) -> Unit, end: Long, onEnd: (Long) -> Unit,
 ) {
-    SwitchRow("Start date", hasStart, onHasStart)
+    SwitchRow("Start Date", hasStart, onHasStart)
     if (hasStart) {
-        RowDivider()
-        DateTimeRow("Starts", toLocalDateTime(start), { onStart(toMillis(it)) })
+        // No extra label: the switch above already says "Start Date"
+        DateTimeRow("", toLocalDateTime(start), { onStart(toMillis(it)) })
     }
     RowDivider()
-    SwitchRow("End date", hasEnd, onHasEnd)
+    SwitchRow("End Date", hasEnd, onHasEnd)
     if (hasEnd) {
-        RowDivider()
-        DateTimeRow("Ends", toLocalDateTime(end), { onEnd(toMillis(it)) })
+        DateTimeRow("", toLocalDateTime(end), { onEnd(toMillis(it)) })
         if (hasStart && end < start) {
             GroupRow { Text("The end is before the start – it will be set to the start.", color = IOS.Red, fontSize = 13.sp) }
         }
