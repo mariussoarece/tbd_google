@@ -33,6 +33,15 @@ class AppStore private constructor(private val appContext: Context) {
     private val _settings = MutableStateFlow(loadSettings())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
 
+    init {
+        val before = _data.value
+        val after = rescoreThisMonth(before)
+        if (after != before) {
+            _data.value = after
+            writer.execute { save(after) }
+        }
+    }
+
     // ================= Settings =================
 
     fun setTheme(v: ThemeSetting) = updateSettings { it.copy(theme = v) }
@@ -52,23 +61,32 @@ class AppStore private constructor(private val appContext: Context) {
             title = title.trim(), dueAt = dueAt / 60_000L * 60_000L, priority = priority,
             reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
         )
-        it.copy(tasks = it.tasks + t)
+        syncConfidence(it.copy(tasks = it.tasks + t), setOf(dayOf(t.dueAt)))
     }
 
     fun editTask(id: String, title: String, dueAt: Long, priority: Priority, reminderMinutes: Int?) = mutate(refresh = true) { d ->
-        d.copy(tasks = d.tasks.map {
+        val old = d.tasks.firstOrNull { it.id == id } ?: return@mutate d
+        val updated = d.copy(tasks = d.tasks.map {
             if (it.id == id) it.copy(
                 title = title.trim(), dueAt = dueAt / 60_000L * 60_000L, priority = priority,
                 reminderMinutes = reminderMinutes?.takeIf { m -> m > 0 },
             ) else it
         })
+        syncConfidence(updated, setOf(dayOf(old.dueAt), dayOf(dueAt)))
     }
 
     fun toggleTask(id: String) = mutate(refresh = true) { d ->
-        d.copy(tasks = d.tasks.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it })
+        val t = d.tasks.firstOrNull { it.id == id } ?: return@mutate d
+        syncConfidence(
+            d.copy(tasks = d.tasks.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it }),
+            setOf(dayOf(t.dueAt)),
+        )
     }
 
-    fun deleteTask(id: String) = mutate(refresh = true) { d -> d.copy(tasks = d.tasks.filterNot { it.id == id }) }
+    fun deleteTask(id: String) = mutate(refresh = true) { d ->
+        val t = d.tasks.firstOrNull { it.id == id } ?: return@mutate d
+        syncConfidence(d.copy(tasks = d.tasks.filterNot { it.id == id }), setOf(dayOf(t.dueAt)))
+    }
 
     // ================= Shopping =================
 
@@ -110,37 +128,47 @@ class AppStore private constructor(private val appContext: Context) {
     // ================= Monthly =================
 
     fun addMonthlyTask(title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int) = mutate(refresh = true) {
-        it.copy(monthlyTasks = it.monthlyTasks + MonthlyTask(
+        val m = MonthlyTask(
             title = title.trim(), price = price,
             dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
-        ))
+        )
+        syncConfidence(it.copy(monthlyTasks = it.monthlyTasks + m), monthlyDays(m))
     }
 
     fun updateMonthlyTask(id: String, title: String, price: Double, dayOfMonth: Int, hour: Int, minute: Int) =
         mutate(refresh = true) { d ->
-            d.copy(monthlyTasks = d.monthlyTasks.map {
-                if (it.id == id) it.copy(
-                    title = title.trim(), price = price,
-                    dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
-                ) else it
-            })
+            val old = d.monthlyTasks.firstOrNull { it.id == id } ?: return@mutate d
+            val new = old.copy(
+                title = title.trim(), price = price,
+                dayOfMonth = dayOfMonth.coerceIn(1, 28), hour = hour, minute = minute,
+            )
+            syncConfidence(
+                d.copy(monthlyTasks = d.monthlyTasks.map { if (it.id == id) new else it }),
+                monthlyDays(old) + monthlyDays(new),
+            )
         }
 
     /** Marks a Monthly Expense as done (paid) for this month, or undoes it. */
     fun toggleMonthlyPaid(id: String) = mutate(refresh = true) { d ->
         val month = java.time.YearMonth.now(zone()).toString()
-        d.copy(monthlyTasks = d.monthlyTasks.map {
+        val m = d.monthlyTasks.firstOrNull { it.id == id } ?: return@mutate d
+        syncConfidence(d.copy(monthlyTasks = d.monthlyTasks.map {
             if (it.id == id) it.copy(paidMonth = if (it.paidMonth == month) null else month) else it
-        })
+        }), monthlyDays(m))
     }
 
     /** Finished for good (moves to Completed), or back to the active list. */
     fun toggleMonthlyCompleted(id: String) = mutate(refresh = true) { d ->
-        d.copy(monthlyTasks = d.monthlyTasks.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it })
+        val m = d.monthlyTasks.firstOrNull { it.id == id } ?: return@mutate d
+        syncConfidence(
+            d.copy(monthlyTasks = d.monthlyTasks.map { if (it.id == id) it.copy(isCompleted = !it.isCompleted) else it }),
+            monthlyDays(m),
+        )
     }
 
     fun deleteMonthlyTask(id: String) = mutate(refresh = true) { d ->
-        d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id })
+        val m = d.monthlyTasks.firstOrNull { it.id == id } ?: return@mutate d
+        syncConfidence(d.copy(monthlyTasks = d.monthlyTasks.filterNot { it.id == id }), monthlyDays(m))
     }
 
     // ================= Grocery =================
@@ -268,28 +296,51 @@ class AppStore private constructor(private val appContext: Context) {
     }
 
     /**
-     * Same as iOS: each day's activity score (done / total × 10) is written as a
-     * Confidence entry tagged "activities". Entries you log yourself are never touched.
+     * Each day's score (done / total × 10) is written as a Confidence entry tagged
+     * "activities". It counts the Daily Routine activities, the To Do tasks due that day
+     * and the Monthly Expenses due that day (done = paid for that month). Entries you
+     * log yourself are never touched.
      */
     private fun syncConfidence(d: AppData, days: Set<LocalDate>): AppData {
         var entries = d.confidenceEntries
         for (day in days) {
-            val items = d.activities.filter { dayOf(it.date) == day }
+            val month = java.time.YearMonth.from(day)
+            val done = mutableListOf<Boolean>()
+            d.activities.filter { dayOf(it.date) == day }.forEach { done += it.isCompleted }
+            d.tasks.filter { dayOf(it.dueAt) == day }.forEach { done += it.isCompleted }
+            d.monthlyTasks.filter { !it.isCompleted && monthlyDay(it, month) == day }.forEach { done += it.isPaid(month) }
+
             val existing = entries.firstOrNull { dayOf(it.date) == day && "activities" in it.tags }
-            entries = if (items.isEmpty()) {
+            entries = if (done.isEmpty()) {
                 if (existing != null) entries - existing else entries
             } else {
-                val score = (items.count { it.isCompleted }.toDouble() / items.size * 10).roundToInt()
-                if (existing != null) entries.map { if (it.id == existing.id) it.copy(score = score) else it }
+                val score = (done.count { it }.toDouble() / done.size * 10).roundToInt()
+                if (existing != null) entries.map { if (it.id == existing.id) it.copy(score = score, note = SCORE_NOTE) else it }
                 else entries + ConfidenceEntry(
                     date = day.atStartOfDay(zone()).toInstant().toEpochMilli(),
                     score = score,
-                    note = "Derived from activities",
+                    note = SCORE_NOTE,
                     tags = listOf("activities"),
                 )
             }
         }
         return d.copy(confidenceEntries = entries)
+    }
+
+    /** The day a Monthly Expense is due in [month], or null if it has no day. */
+    private fun monthlyDay(m: MonthlyTask, month: java.time.YearMonth): LocalDate? =
+        m.dayOfMonth?.let { month.atDay(it.coerceIn(1, month.lengthOfMonth())) }
+
+    /** This month's due day of a Monthly Expense (the day whose score it changes). */
+    private fun monthlyDays(m: MonthlyTask): Set<LocalDate> =
+        setOfNotNull(monthlyDay(m, java.time.YearMonth.now(zone())))
+
+    /** Brings this month's scores up to date (also counts To Do and Monthly Expenses since 2.8). */
+    private fun rescoreThisMonth(d: AppData): AppData {
+        val month = java.time.YearMonth.now(zone())
+        val today = LocalDate.now(zone())
+        val days = (1..today.dayOfMonth).map { month.atDay(it) }.toSet()
+        return syncConfidence(d, days)
     }
 
     // ================= Confidence =================
@@ -370,7 +421,7 @@ class AppStore private constructor(private val appContext: Context) {
                         d.tasks.none { it.title == t.title && it.dueAt == t.dueAt && it.priority == t.priority }
                     }.map { it.copy(id = newId()) }
                     added = new.size
-                    d.copy(tasks = d.tasks + new)
+                    syncConfidence(d.copy(tasks = d.tasks + new), new.map { dayOf(it.dueAt) }.toSet())
                 }
                 ExportImport.Kind.SHOPPING -> {
                     val new = imported.shoppingItems.filter { s -> d.shoppingItems.none { it.id == s.id } }
@@ -382,7 +433,7 @@ class AppStore private constructor(private val appContext: Context) {
                         d.monthlyTasks.none { it.title == m.title && it.price == m.price }
                     }
                     added = new.size
-                    d.copy(monthlyTasks = d.monthlyTasks + new)
+                    syncConfidence(d.copy(monthlyTasks = d.monthlyTasks + new), new.flatMap { monthlyDays(it) }.toSet())
                 }
                 ExportImport.Kind.PROJECTS -> {
                     val new = imported.projects.filter { p -> d.projects.none { it.id == p.id } }
@@ -484,6 +535,7 @@ class AppStore private constructor(private val appContext: Context) {
 
     companion object {
         private const val TAG = "AppStore"
+        private const val SCORE_NOTE = "Daily Routine, To Do and Monthly Expenses"
         private const val K_THEME = "selectedTheme"
         private const val K_CURRENCY = "selectedCurrency"
         private const val K_NAME = "userName"

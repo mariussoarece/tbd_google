@@ -107,7 +107,7 @@ data class Activity(
     fun overlaps(other: Activity): Boolean = date < other.endMillis && other.date < endMillis
 }
 
-/** iOS ConfidenceEntry. Entries tagged "activities" are derived from the Daily Routine. */
+/** iOS ConfidenceEntry. Entries tagged "activities" are the day's score from Daily Routine, To Do and Monthly Expenses. */
 data class ConfidenceEntry(
     val id: String = newId(),
     val date: Long,

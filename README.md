@@ -60,6 +60,12 @@ The PNG files go to "ToBeDone Android Screenshots" on your Desktop.
 - Hints on every list ("tap to complete, hold to edit"), short confirmations after adding and saving.
 - Home: Journalling comes before Focus Test.
 
+**New in 2.8**
+- The day's **Confidence** score now counts To Do tasks and Monthly Expenses due that day, as well as
+  Daily Routine activities (done ÷ total × 10).
+- The **widget face** changes at 9 PM to the face for that day's Confidence level and stays until 9 PM the next day.
+  Each level from 2 to 10 has its own face (same yellow face, different expression); 0–1 keep the serious face.
+
 **Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),
 daily summary notification (default 21:00) and activity-start notifications.
 
