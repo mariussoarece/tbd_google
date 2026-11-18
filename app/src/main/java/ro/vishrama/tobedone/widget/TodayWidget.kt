@@ -99,10 +99,7 @@ private val Indigo = Color(0xFF5856D6)
  * 8–10 big smile, 5–7 smile, 0–4 serious. No entries in the last 7 days: no face.
  */
 private fun faceFor(data: ro.vishrama.tobedone.data.AppData): Int? {
-    val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
-    val recent = data.confidenceEntries.filter { it.date >= weekAgo }
-    if (recent.isEmpty()) return null
-    val level = recent.map { it.score }.average()
+    val level = ro.vishrama.tobedone.data.ConfidenceLevels.average(data.confidenceEntries, 7) ?: return null
     return when {
         level >= 7.5 -> R.drawable.face_big_smile
         level >= 4.5 -> R.drawable.face_smile

@@ -30,6 +30,7 @@ fun LineChart(
     target: Double? = null,
     targetLabel: String? = null,
     color: Color = IOS.Blue,
+    showDots: Boolean = true,
 ) {
     val g = LocalGrouped.current
     val labelColor = g.secondaryText
@@ -85,6 +86,6 @@ fun LineChart(
             if (i == 0) path.moveTo(px(x), py(y)) else path.lineTo(px(x), py(y))
         }
         drawPath(path, color, style = Stroke(width = 2.dp.toPx()))
-        sorted.forEach { (x, y) -> drawCircle(color, radius = 3.5.dp.toPx(), center = Offset(px(x), py(y))) }
+        if (showDots) sorted.forEach { (x, y) -> drawCircle(color, radius = 3.5.dp.toPx(), center = Offset(px(x), py(y))) }
     }
 }

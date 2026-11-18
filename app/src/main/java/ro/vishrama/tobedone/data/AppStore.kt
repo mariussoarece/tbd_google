@@ -303,7 +303,13 @@ class AppStore private constructor(private val appContext: Context) {
      */
     private fun syncConfidence(d: AppData, days: Set<LocalDate>): AppData {
         var entries = d.confidenceEntries
+        val today = LocalDate.now(zone())
         for (day in days) {
+            // Days that haven't come yet get no score (it would show as 0 in Confidence)
+            if (day.isAfter(today)) {
+                entries = entries.filterNot { dayOf(it.date) == day && "activities" in it.tags }
+                continue
+            }
             val month = java.time.YearMonth.from(day)
             val done = mutableListOf<Boolean>()
             d.activities.filter { dayOf(it.date) == day }.forEach { done += it.isCompleted }
@@ -335,12 +341,24 @@ class AppStore private constructor(private val appContext: Context) {
     private fun monthlyDays(m: MonthlyTask): Set<LocalDate> =
         setOfNotNull(monthlyDay(m, java.time.YearMonth.now(zone())))
 
-    /** Brings this month's scores up to date (also counts To Do and Monthly Expenses since 2.8). */
+    /**
+     * Brings this month's scores up to date (also counts To Do and Monthly Expenses since 2.8)
+     * and removes scores that older versions made for days that haven't come yet.
+     */
     private fun rescoreThisMonth(d: AppData): AppData {
         val month = java.time.YearMonth.now(zone())
         val today = LocalDate.now(zone())
+        val future = d.confidenceEntries.filter { "activities" in it.tags && dayOf(it.date).isAfter(today) }
+            .map { dayOf(it.date) }.toSet()
         val days = (1..today.dayOfMonth).map { month.atDay(it) }.toSet()
-        return syncConfidence(d, days)
+        return syncConfidence(d, days + future)
+    }
+
+    /** Called when the app comes to the screen: today's score appears once the day has started. */
+    fun rescore() {
+        if (isDemo) return
+        val before = _data.value
+        if (rescoreThisMonth(before) != before) mutate { rescoreThisMonth(it) }
     }
 
     // ================= Confidence =================

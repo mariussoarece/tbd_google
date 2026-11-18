@@ -63,6 +63,9 @@ The PNG files go to "ToBeDone Android Screenshots" on your Desktop.
 **New in 2.8**
 - The day's **Confidence** score now counts To Do tasks and Monthly Expenses due that day, as well as
   Daily Routine activities (done ÷ total × 10).
+- (2.8.2) Confidence shows your whole history up to today (no more scores for days that haven't come yet).
+  A day's level is its To Do + Monthly Expenses + Daily Routine score; days without those use your own ratings.
+  **Recent** lists every rating you saved yourself, with its note.
 - (2.8.1) The widget keeps its three faces from 2.7 (big smile, smile, serious), from the 7-day Confidence average.
 
 **Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),

@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ro.vishrama.tobedone.data.AppStore
 import ro.vishrama.tobedone.data.ConfidenceEntry
+import ro.vishrama.tobedone.data.ConfidenceLevels
 import ro.vishrama.tobedone.ui.DetailScreen
 import ro.vishrama.tobedone.ui.GroupCard
 import ro.vishrama.tobedone.ui.LineChart
@@ -54,6 +55,8 @@ import ro.vishrama.tobedone.ui.formatDateTime
 import ro.vishrama.tobedone.ui.theme.IOS
 import ro.vishrama.tobedone.ui.theme.LocalGrouped
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 fun ConfidenceScreen(store: AppStore, onBack: () -> Unit) {
@@ -68,6 +71,10 @@ fun ConfidenceScreen(store: AppStore, onBack: () -> Unit) {
     var confirmDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     val entries = data.confidenceEntries.sortedByDescending { it.date }
+    // One level per day, up to today (To Do + Monthly Expenses + Daily Routine score, or your own ratings)
+    val levels = ConfidenceLevels.daily(entries)
+    // Ratings you saved yourself, newest first
+    val yours = entries.filterNot { ConfidenceLevels.isDerived(it) }
 
     DetailScreen(
         "Confidence", IOS.Red, onBack,
@@ -157,31 +164,34 @@ fun ConfidenceScreen(store: AppStore, onBack: () -> Unit) {
             }
         }
 
-        // Chart: daily averages for the last 30 days
+        // Chart: every day since you started, up to today
         item {
             val zone = AppStore.zone()
-            val start = LocalDate.now(zone).minusDays(29)
-            val daily = entries
-                .filter { !AppStore.dayOf(it.date).isBefore(start) }
-                .groupBy { AppStore.dayOf(it.date) }
-                .map { (day, list) -> day.atStartOfDay(zone).toInstant().toEpochMilli().toDouble() to list.map { it.score }.average() }
+            val points = levels.map { (day, level) -> day.atStartOfDay(zone).toInstant().toEpochMilli().toDouble() to level }
             Card {
-                Text("Last 30 Days", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                if (daily.isEmpty()) {
-                    Text("Your daily averages will appear here.", color = g.secondaryText, fontSize = 15.sp)
+                Text("History", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                if (points.isEmpty()) {
+                    Text("Your daily levels will appear here.", color = g.secondaryText, fontSize = 15.sp)
                 } else {
-                    LineChart(daily, yMin = 1.0, yMax = 10.0, target = 7.0, targetLabel = "Target 7+")
+                    Text(
+                        "Since " + levels.first().first.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+                        fontSize = 13.sp, color = g.secondaryText,
+                    )
+                    LineChart(
+                        points, yMin = 0.0, yMax = 10.0, target = 7.0, targetLabel = "Target 7+",
+                        showDots = points.size <= 60,
+                    )
                 }
             }
         }
 
-        // Stats
+        // Stats (from the daily levels)
         item {
-            val avg7 = averageSince(entries, 7)
-            val avg30 = averageSince(entries, 30)
-            val best = entries.maxOfOrNull { it.score }?.toDouble() ?: 0.0
-            val worst = entries.minOfOrNull { it.score }?.toDouble() ?: 0.0
-            val streak = streak(entries, 7)
+            val avg7 = ConfidenceLevels.average(entries, 7) ?: 0.0
+            val avg30 = ConfidenceLevels.average(entries, 30) ?: 0.0
+            val best = levels.maxOfOrNull { it.second } ?: 0.0
+            val worst = levels.minOfOrNull { it.second } ?: 0.0
+            val streak = streak(levels, 7.0)
             Card {
                 Text("Stats", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 Row { StatCell("7‑day avg", "%.1f".format(avg7)); StatCell("30‑day avg", "%.1f".format(avg30)) }
@@ -190,14 +200,14 @@ fun ConfidenceScreen(store: AppStore, onBack: () -> Unit) {
             }
         }
 
-        // Recent entries
+        // Recent: every rating you saved yourself, with its note
         item {
             Card {
                 Text("Recent", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                if (entries.isEmpty()) {
-                    Text("No entries yet. Log your first confidence check above.", color = g.secondaryText)
+                if (yours.isEmpty()) {
+                    Text("No entries yet. Save your first confidence check above.", color = g.secondaryText)
                 } else {
-                    entries.take(12).forEach { e -> RecentRow(e) { store.deleteConfidence(e.id) } }
+                    yours.forEach { e -> RecentRow(e) { store.deleteConfidence(e.id) } }
                 }
             }
         }
@@ -256,18 +266,13 @@ private fun RecentRow(e: ConfidenceEntry, onDelete: () -> Unit) {
     }
 }
 
-private fun averageSince(entries: List<ConfidenceEntry>, days: Long): Double {
-    val start = LocalDate.now(AppStore.zone()).minusDays(days - 1)
-    val vals = entries.filter { !AppStore.dayOf(it.date).isBefore(start) }.map { it.score }
-    return if (vals.isEmpty()) 0.0 else vals.average()
-}
-
-/** Days in a row, up to today, with at least one score ≥ [min]. */
-private fun streak(entries: List<ConfidenceEntry>, min: Int): Int {
-    val byDay = entries.groupBy { AppStore.dayOf(it.date) }
+/** Days in a row, up to today (or yesterday, if today has no level yet), with a level ≥ [min]. */
+private fun streak(levels: List<Pair<LocalDate, Double>>, min: Double): Int {
+    val byDay = levels.toMap()
     var day = LocalDate.now(AppStore.zone())
+    if (byDay[day] == null) day = day.minusDays(1)
     var n = 0
-    while (byDay[day]?.any { it.score >= min } == true) {
+    while ((byDay[day] ?: -1.0) >= min) {
         n++
         day = day.minusDays(1)
     }

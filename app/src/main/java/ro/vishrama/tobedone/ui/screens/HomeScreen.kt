@@ -107,10 +107,8 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
     val monthlyText = if (activeMonthly.isEmpty()) null
     else "${compactNumber(activeMonthly.sumOf { it.price })} ${settings.currency}"
 
-    val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
-    val recentConfidence = data.confidenceEntries.filter { it.date >= weekAgo }
-    val confidenceText = if (recentConfidence.isEmpty()) null
-    else String.format("%.1f", recentConfidence.map { it.score }.average())
+    val confidenceText = ro.vishrama.tobedone.data.ConfidenceLevels.average(data.confidenceEntries, 7)
+        ?.let { String.format("%.1f", it) }
 
     val focusText = data.focusResults.maxOfOrNull { it.duration }?.let { "Best ${formatBest(it)}" }
 

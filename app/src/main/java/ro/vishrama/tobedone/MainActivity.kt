@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // Like iOS: rebuild reminders every time the app comes to the screen
+        AppStore.get(this).rescore()   // today's Confidence score, once the day has started
         ReminderScheduler.refresh(this)
         TodayWidget.requestUpdate(this)
     }
