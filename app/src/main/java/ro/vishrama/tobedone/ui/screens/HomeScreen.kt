@@ -114,11 +114,11 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
 
     fun count(n: Int) = if (n > 0) "$n" else null
 
-    // Shopping: a red badge with the number of items to buy, then their total
-    // (same total as the Shopping screen), e.g. (3) 200 USD
+    // Shopping: items to buy in parentheses, then their total (same as the Shopping screen),
+    // e.g. "(3) 200 USD"
     val toBuy = data.shoppingItems.filter { !it.isCompleted }
-    val shoppingText = if (toBuy.isEmpty()) "0" else "${compactNumber(toBuy.sumOf { it.price })} ${settings.currency}"
-    val shoppingBadge = if (toBuy.isEmpty()) null else "${toBuy.size}"
+    val shoppingText = if (toBuy.isEmpty()) "0"
+    else "(${toBuy.size}) ${compactNumber(toBuy.sumOf { it.price })} ${settings.currency}"
 
     // "Please rate us" box after 1 and 2 months of use
     val context = LocalContext.current
@@ -241,7 +241,7 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
         item { HomeHeader("DO") }
         item {
             GroupCard {
-                HomeRow("Shopping", Icons.Filled.ShoppingCart, IOS.Red, shoppingText, badge = shoppingBadge) { onOpen(Screen.SHOPPING) }
+                HomeRow("Shopping", Icons.Filled.ShoppingCart, IOS.Red, shoppingText) { onOpen(Screen.SHOPPING) }
                 RowDivider(58.dp)
                 HomeRow("Grocery", Icons.Filled.ShoppingBasket, IOS.Yellow, "${data.groceryItems.count { !it.isBought }}") { onOpen(Screen.GROCERY) }
             }
@@ -250,7 +250,7 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
         item { HomeHeader("GROW") }
         item {
             GroupCard {
-                HomeRow("Daily Routine", Icons.Filled.Schedule, IOS.Indigo, "$activitiesLeft left") { onOpen(Screen.ROUTINE) }
+                HomeRow("Daily Routine", Icons.Filled.Schedule, IOS.Indigo, "$activitiesLeft") { onOpen(Screen.ROUTINE) }
                 RowDivider(58.dp)
                 HomeRow("Confidence", Icons.Filled.Favorite, IOS.Pink, confidenceText) { onOpen(Screen.CONFIDENCE) }
                 RowDivider(58.dp)
@@ -353,10 +353,7 @@ private fun HomeHeader(text: String) {
 }
 
 @Composable
-private fun HomeRow(
-    title: String, icon: ImageVector, color: Color, detail: String?,
-    badge: String? = null, onClick: () -> Unit,
-) {
+private fun HomeRow(title: String, icon: ImageVector, color: Color, detail: String?, onClick: () -> Unit) {
     val g = LocalGrouped.current
     Row(
         Modifier
@@ -368,15 +365,6 @@ private fun HomeRow(
     ) {
         IconTile(icon, color)
         Text(title, fontSize = 17.sp, modifier = Modifier.weight(1f))
-        if (badge != null) {
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(color.copy(alpha = 0.15f))
-                    .padding(horizontal = 9.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center,
-            ) { Text(badge, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = color) }
-        }
         if (detail != null) Text(detail, fontSize = 17.sp, color = g.secondaryText)
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = g.separator)
     }
