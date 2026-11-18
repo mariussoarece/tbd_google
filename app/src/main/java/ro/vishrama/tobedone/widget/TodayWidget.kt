@@ -69,8 +69,7 @@ class TodayWidget : GlanceAppWidget() {
             val today = LocalDate.now(AppStore.zone())
             GlanceTheme {
                 // Only what's left from the current hour onwards
-                WidgetContent(context, today, Agenda.fromCurrentHour(data), settings.currency,
-                    faceFor(context, data, java.time.ZonedDateTime.now(AppStore.zone())))
+                WidgetContent(context, today, Agenda.fromCurrentHour(data), settings.currency, faceFor(data))
             }
         }
     }
@@ -96,40 +95,19 @@ private val Orange = Color(0xFFFF9500)
 private val Indigo = Color(0xFF5856D6)
 
 /**
- * Face for the widget background. At 9 PM the day's Confidence level (the average of
- * that day's entries, 0–10) is saved, and its face stays on the widget until 9 PM the
- * next day. Each level from 2 to 10 has its own face; 0 and 1 keep the serious face.
- * No Confidence entries that day: no face.
+ * Face for the widget background from the Confidence level (7-day average, as on Home):
+ * 8–10 big smile, 5–7 smile, 0–4 serious. No entries in the last 7 days: no face.
  */
-private const val FACE_HOUR = 21
-
-internal fun faceFor(context: Context, data: ro.vishrama.tobedone.data.AppData, now: java.time.ZonedDateTime): Int? {
-    // Before 9 PM the face is still the one from yesterday's 9 PM
-    val day = if (now.hour >= FACE_HOUR) now.toLocalDate() else now.toLocalDate().minusDays(1)
-    val prefs = context.getSharedPreferences("widget", Context.MODE_PRIVATE)
-    val level: Int = if (prefs.getString("faceDay", null) == day.toString()) {
-        prefs.getInt("faceLevel", -1)
-    } else {
-        val entries = data.confidenceEntries.filter { AppStore.dayOf(it.date) == day }
-        val l = if (entries.isEmpty()) -1 else Math.round(entries.map { it.score }.average()).toInt().coerceIn(0, 10)
-        prefs.edit().putString("faceDay", day.toString()).putInt("faceLevel", l).apply()
-        l
+private fun faceFor(data: ro.vishrama.tobedone.data.AppData): Int? {
+    val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+    val recent = data.confidenceEntries.filter { it.date >= weekAgo }
+    if (recent.isEmpty()) return null
+    val level = recent.map { it.score }.average()
+    return when {
+        level >= 7.5 -> R.drawable.face_big_smile
+        level >= 4.5 -> R.drawable.face_smile
+        else -> R.drawable.face_serious
     }
-    return faceForLevel(level)
-}
-
-internal fun faceForLevel(level: Int): Int? = when (level) {
-    10 -> R.drawable.face_10
-    9 -> R.drawable.face_9
-    8 -> R.drawable.face_8
-    7 -> R.drawable.face_7
-    6 -> R.drawable.face_6
-    5 -> R.drawable.face_5
-    4 -> R.drawable.face_4
-    3 -> R.drawable.face_3
-    2 -> R.drawable.face_2
-    0, 1 -> R.drawable.face_serious
-    else -> null
 }
 
 private fun openIntent(context: Context, screen: String?): Action {

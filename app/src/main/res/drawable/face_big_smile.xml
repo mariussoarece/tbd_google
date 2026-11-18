@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget background face: confidence 8–10 (big smile). Semi-transparent so the list stays readable. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="#FFCC00" android:fillAlpha="0.35"
+        android:pathData="M50,4 A46,46 0 1,1 49.99,4 Z" />
+    <path android:fillColor="#7A5C00" android:fillAlpha="0.45"
+        android:pathData="M28,36 Q35,27 42,36 L38,38 Q35,33 32,38 Z M58,36 Q65,27 72,36 L68,38 Q65,33 62,38 Z" />
+    <path android:fillColor="#7A5C00" android:fillAlpha="0.45"
+        android:pathData="M24,52 L76,52 Q74,82 50,84 Q26,82 24,52 Z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.55"
+        android:pathData="M30,55 L70,55 Q69,62 66,64 L34,64 Q31,62 30,55 Z" />
+</vector>
