@@ -108,7 +108,7 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
     else "${compactNumber(activeMonthly.sumOf { it.price })} ${settings.currency}"
 
     val confidenceText = ro.vishrama.tobedone.data.ConfidenceLevels.today(data.confidenceEntries)
-        ?.let { String.format("%.1f", it) }
+        ?.let { Math.round(it).toString() }   // whole number, like the widget face (4.5 → 5)
 
     val focusText = data.focusResults.maxOfOrNull { it.duration }?.let { "Best ${formatBest(it)}" }
 
