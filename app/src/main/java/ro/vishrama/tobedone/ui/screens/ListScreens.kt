@@ -244,7 +244,7 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     AddedConfirmation("Expense added", added)
     AddedConfirmation(toast, toastCount)
 
-    DetailScreen("Monthly Expenses", IOS.Orange, onBack) {
+    DetailScreen("Monthly", IOS.Orange, onBack) {
         item { SectionHeader("Add Monthly Expense") }
         item {
             GroupCard {

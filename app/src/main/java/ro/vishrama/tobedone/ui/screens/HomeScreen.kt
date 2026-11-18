@@ -104,8 +104,9 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
 
     // Active expenses only; completed ones are not counted (same as the Monthly screen)
     val activeMonthly = data.monthlyTasks.filter { !it.isCompleted }
-    val monthlyText = if (activeMonthly.isEmpty()) null
-    else "${compactNumber(activeMonthly.sumOf { it.price })} ${settings.currency}"
+    // e.g. "(3) 200 USD": how many monthly expenses, and what they cost each month
+    val monthlyText = if (activeMonthly.isEmpty()) "0"
+    else "(${activeMonthly.size}) ${compactNumber(activeMonthly.sumOf { it.price })} ${settings.currency}"
 
     val confidenceText = ro.vishrama.tobedone.data.ConfidenceLevels.today(data.confidenceEntries)
         ?.let { Math.round(it).toString() }   // whole number, like the widget face (4.5 → 5)
@@ -232,7 +233,7 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
             GroupCard {
                 HomeRow("To Do", Icons.Filled.Checklist, IOS.Blue, count(openTasks)) { onOpen(Screen.TODO) }
                 RowDivider(58.dp)
-                HomeRow("Monthly Expenses", Icons.Filled.CalendarMonth, IOS.Orange, monthlyText) { onOpen(Screen.MONTHLY) }
+                HomeRow("Monthly", Icons.Filled.CalendarMonth, IOS.Orange, monthlyText) { onOpen(Screen.MONTHLY) }
                 RowDivider(58.dp)
                 HomeRow("Projects", Icons.Filled.TrackChanges, IOS.Green, count(data.projects.count { !it.isCompleted })) { onOpen(Screen.PROJECTS) }
             }
