@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget background face for Confidence level 6 (content). Same base for every level; only the expression changes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100"
+    android:alpha="0.5">
+    <path android:pathData="M50,4 a46,46 0 1,0 0.01,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="40" android:centerY="32" android:gradientRadius="62"
+                android:startColor="#FFEB80" android:centerColor="#FFCF33" android:endColor="#F2A900" />
+        </aapt:attr>
+    </path>
+    <path android:strokeColor="#E08A00" android:strokeWidth="2" android:fillColor="#00000000"
+        android:pathData="M50,4 a46,46 0 1,0 0.01,0 Z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.35"
+        android:pathData="M22,26 Q50,6 78,26 Q50,18 22,26 Z" />
+    <path android:strokeColor="#3B2208" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"
+        android:pathData="M29,42 Q37,32 45,42" />
+    <path android:strokeColor="#3B2208" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"
+        android:pathData="M55,42 Q63,32 71,42" />
+    <path android:strokeColor="#3B2208" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"
+        android:pathData="M24,60 Q50,84 76,60" />
+    <path android:strokeColor="#3B2208" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"
+        android:pathData="M21,57 L25,61 M79,57 L75,61" />
+</vector>

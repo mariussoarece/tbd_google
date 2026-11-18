@@ -95,14 +95,22 @@ private val Orange = Color(0xFFFF9500)
 private val Indigo = Color(0xFF5856D6)
 
 /**
- * Face for the widget background from the Confidence level (7-day average, as on Home):
- * 8–10 big smile, 5–7 smile, 0–4 serious. No entries in the last 7 days: no face.
+ * Face for the widget background from the Confidence level (7-day average, as on Home),
+ * rounded to a whole level: each level from 2 to 10 has its own face, 0 and 1 the serious
+ * face. No levels in the last 7 days: no face.
  */
 private fun faceFor(data: ro.vishrama.tobedone.data.AppData): Int? {
     val level = ro.vishrama.tobedone.data.ConfidenceLevels.average(data.confidenceEntries, 7) ?: return null
-    return when {
-        level >= 7.5 -> R.drawable.face_big_smile
-        level >= 4.5 -> R.drawable.face_smile
+    return when (Math.round(level).toInt().coerceIn(0, 10)) {
+        10 -> R.drawable.face_10
+        9 -> R.drawable.face_9
+        8 -> R.drawable.face_8
+        7 -> R.drawable.face_7
+        6 -> R.drawable.face_6
+        5 -> R.drawable.face_5
+        4 -> R.drawable.face_4
+        3 -> R.drawable.face_3
+        2 -> R.drawable.face_2
         else -> R.drawable.face_serious
     }
 }
