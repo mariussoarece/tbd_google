@@ -191,12 +191,16 @@ fun ConfidenceScreen(store: AppStore, onBack: () -> Unit) {
             val avg30 = ConfidenceLevels.average(entries, 30) ?: 0.0
             val best = levels.maxOfOrNull { it.second } ?: 0.0
             val worst = levels.minOfOrNull { it.second } ?: 0.0
-            val streak = streak(levels, 7.0)
+            val streak = streak(levels)
             Card {
                 Text("Stats", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Row { StatCell("7‑day avg", "%.1f".format(avg7)); StatCell("30‑day avg", "%.1f".format(avg30)) }
-                Row { StatCell("Best day", "%.1f".format(best)); StatCell("Worst day", "%.1f".format(worst)) }
-                Row { StatCell("Streak ≥7", "$streak day" + if (streak == 1) "" else "s") }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    StatCell("Best day", "%.1f".format(best))
+                    StatCell("Worst day", "%.1f".format(worst))
+                    StatCell("7‑day avg", "%.1f".format(avg7))
+                    StatCell("30‑day avg", "%.1f".format(avg30))
+                    StatCell("Streak", "$streak")
+                }
             }
         }
 
@@ -239,9 +243,9 @@ private fun Card(content: @Composable androidx.compose.foundation.layout.ColumnS
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.StatCell(title: String, value: String) {
-    Column(Modifier.weight(1f)) {
-        Text(title, fontSize = 12.sp, color = LocalGrouped.current.secondaryText)
-        Text(value, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(title, fontSize = 11.sp, color = LocalGrouped.current.secondaryText, maxLines = 1, softWrap = false)
+        Text(value, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -266,13 +270,17 @@ private fun RecentRow(e: ConfidenceEntry, onDelete: () -> Unit) {
     }
 }
 
-/** Days in a row, up to today (or yesterday, if today has no level yet), with a level ≥ [min]. */
-private fun streak(levels: List<Pair<LocalDate, Double>>, min: Double): Int {
+/**
+ * Streak: days in a row with a Confidence level above 0. Counts back from today; if today
+ * has no level yet (or is still at 0), it counts from yesterday, so an unfinished day
+ * doesn't break it. A day with no level at all ends the streak.
+ */
+private fun streak(levels: List<Pair<LocalDate, Double>>): Int {
     val byDay = levels.toMap()
     var day = LocalDate.now(AppStore.zone())
-    if (byDay[day] == null) day = day.minusDays(1)
+    if ((byDay[day] ?: 0.0) <= 0.0) day = day.minusDays(1)
     var n = 0
-    while ((byDay[day] ?: -1.0) >= min) {
+    while ((byDay[day] ?: 0.0) > 0.0) {
         n++
         day = day.minusDays(1)
     }

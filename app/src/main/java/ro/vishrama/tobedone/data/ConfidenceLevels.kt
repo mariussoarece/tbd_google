@@ -3,9 +3,9 @@ package ro.vishrama.tobedone.data
 import java.time.LocalDate
 
 /**
- * The Confidence level of each day. If the day had To Do tasks, Monthly Expenses or
- * Daily Routine activities, the level is their score (done ÷ total × 10). Days with only
- * ratings you saved yourself use the average of those ratings. Days after today never count.
+ * The Confidence level of each day: the average of that day's To Do + Monthly Expenses +
+ * Daily Routine score (done ÷ total × 10) and every rating you saved yourself that day.
+ * Days after today never count.
  */
 object ConfidenceLevels {
 
@@ -15,10 +15,7 @@ object ConfidenceLevels {
     fun daily(entries: List<ConfidenceEntry>, today: LocalDate = LocalDate.now(AppStore.zone())): List<Pair<LocalDate, Double>> =
         entries.groupBy { AppStore.dayOf(it.date) }
             .filterKeys { !it.isAfter(today) }
-            .map { (day, list) ->
-                val derived = list.firstOrNull { isDerived(it) }
-                day to (derived?.score?.toDouble() ?: list.map { it.score }.average())
-            }
+            .map { (day, list) -> day to list.map { it.score }.average() }
             .sortedBy { it.first }
 
     /** Average daily level over the last [days] days (today included), or null with no levels. */
