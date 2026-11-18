@@ -27,4 +27,8 @@ object ConfidenceLevels {
         val vals = daily(entries, today).filter { !it.first.isBefore(start) }.map { it.second }
         return if (vals.isEmpty()) null else vals.average()
     }
+
+    /** Today's level, or null when today has nothing yet. */
+    fun today(entries: List<ConfidenceEntry>, today: LocalDate = LocalDate.now(AppStore.zone())): Double? =
+        daily(entries, today).lastOrNull()?.takeIf { it.first == today }?.second
 }
