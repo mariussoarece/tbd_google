@@ -114,6 +114,11 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
 
     fun count(n: Int) = if (n > 0) "$n" else null
 
+    // Shopping: items still to buy and their total, e.g. "3 – 200 USD" (same total as the Shopping screen)
+    val toBuy = data.shoppingItems.filter { !it.isCompleted }
+    val shoppingText = if (toBuy.isEmpty()) "0"
+    else "${toBuy.size} – ${compactNumber(toBuy.sumOf { it.price })} ${settings.currency}"
+
     // "Please rate us" box after 1 and 2 months of use
     val context = LocalContext.current
     var reviewBox by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -235,9 +240,9 @@ fun HomeScreen(store: AppStore, onOpen: (Screen) -> Unit) {
         item { HomeHeader("DO") }
         item {
             GroupCard {
-                HomeRow("Shopping", Icons.Filled.ShoppingCart, IOS.Red, count(data.shoppingItems.count { !it.isCompleted })) { onOpen(Screen.SHOPPING) }
+                HomeRow("Shopping", Icons.Filled.ShoppingCart, IOS.Red, shoppingText) { onOpen(Screen.SHOPPING) }
                 RowDivider(58.dp)
-                HomeRow("Grocery", Icons.Filled.ShoppingBasket, IOS.Yellow, count(data.groceryItems.count { !it.isBought })) { onOpen(Screen.GROCERY) }
+                HomeRow("Grocery", Icons.Filled.ShoppingBasket, IOS.Yellow, "${data.groceryItems.count { !it.isBought }}") { onOpen(Screen.GROCERY) }
             }
         }
 
