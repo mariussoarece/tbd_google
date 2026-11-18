@@ -68,6 +68,12 @@ The PNG files go to "ToBeDone Android Screenshots" on your Desktop.
   **Recent** lists every rating you saved yourself, with its note.
 - (2.8.1) The widget keeps its three faces from 2.7 (big smile, smile, serious), from the 7-day Confidence average.
 
+**New in 2.9**
+- The widget face follows **today's** Confidence level: each level from 2 to 10 has its own face, 0–1 the serious face.
+- Home shows today's Confidence level as a whole number.
+- A day's level is the average of its To Do + Monthly Expenses + Daily Routine score and the ratings you save yourself.
+- Confidence stats on one line: Best day, Worst day, 7‑day avg, 30‑day avg, Streak (days in a row above 0).
+
 **Settings** – your name, theme (Default / Light / Dark), currency (same list as iOS),
 daily summary notification (default 21:00) and activity-start notifications.
 
