@@ -94,25 +94,17 @@ private val Blue = Color(0xFF007AFF)
 private val Orange = Color(0xFFFF9500)
 private val Indigo = Color(0xFF5856D6)
 
+// All widget text is black, on a light background in both Light and Dark mode
+private val TextBlack = ColorProvider(Color.Black)
+private val WidgetBackground = ColorProvider(Color(0xFFF2F2F7))
+
 /**
- * Face for the widget background from today's Confidence level (as on Home),
- * rounded to a whole level: each level from 2 to 10 has its own face, 0 and 1 the serious
- * face. Nothing today yet: no face.
+ * Face for the widget background: only on days when today's Confidence level is a full 10.
+ * Any lower level, or nothing today yet: no face.
  */
 private fun faceFor(data: ro.vishrama.tobedone.data.AppData): Int? {
     val level = ro.vishrama.tobedone.data.ConfidenceLevels.today(data.confidenceEntries) ?: return null
-    return when (Math.round(level).toInt().coerceIn(0, 10)) {
-        10 -> R.drawable.face_10
-        9 -> R.drawable.face_9
-        8 -> R.drawable.face_8
-        7 -> R.drawable.face_7
-        6 -> R.drawable.face_6
-        5 -> R.drawable.face_5
-        4 -> R.drawable.face_4
-        3 -> R.drawable.face_3
-        2 -> R.drawable.face_2
-        else -> R.drawable.face_serious
-    }
+    return if (level >= 10.0) R.drawable.face_10 else null
 }
 
 private fun openIntent(context: Context, screen: String?): Action {
@@ -130,7 +122,7 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
     Box(
         GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
+            .background(WidgetBackground)
             .cornerRadius(18.dp),
         contentAlignment = Alignment.BottomEnd,
     ) {
@@ -148,11 +140,11 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
             Column(GlanceModifier.defaultWeight().clickable(openApp)) {
                 Text(
                     "Today",
-                    style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface),
+                    style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextBlack),
                 )
                 Text(
                     today.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())),
-                    style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    style = TextStyle(fontSize = 12.sp, color = TextBlack),
                 )
             }
             Box(
@@ -173,7 +165,7 @@ private fun WidgetContent(context: Context, today: LocalDate, agenda: List<Agend
             Text(
                 "Nothing more planned for today.",
                 modifier = GlanceModifier.clickable(openApp),
-                style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                style = TextStyle(fontSize = 14.sp, color = TextBlack),
             )
         } else {
             LazyColumn(GlanceModifier.fillMaxSize()) {
@@ -211,7 +203,7 @@ private fun WidgetRow(context: Context, a: AgendaItem, currency: String) {
         Text(
             a.time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)),
             modifier = GlanceModifier.width(44.dp),
-            style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant),
+            style = TextStyle(fontSize = 12.sp, color = TextBlack),
         )
         Box(GlanceModifier.width(3.dp).height(26.dp).cornerRadius(2.dp).background(ColorProvider(color))) {}
         Spacer(GlanceModifier.width(8.dp))
@@ -221,11 +213,11 @@ private fun WidgetRow(context: Context, a: AgendaItem, currency: String) {
                 maxLines = 1,
                 style = TextStyle(
                     fontSize = 14.sp,
-                    color = if (a.done) GlanceTheme.colors.onSurfaceVariant else GlanceTheme.colors.onSurface,
+                    color = TextBlack,
                     textDecoration = if (a.done) TextDecoration.LineThrough else null,
                 ),
             )
-            Text(detail, maxLines = 1, style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurfaceVariant))
+            Text(detail, maxLines = 1, style = TextStyle(fontSize = 11.sp, color = TextBlack))
         }
     }
 }

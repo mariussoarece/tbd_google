@@ -21,8 +21,8 @@ android {
         applicationId = "ro.vishrama.tobedone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.9.5"
+        versionCode = 21
+        versionName = "2.9.6"
     }
 
     signingConfigs {
