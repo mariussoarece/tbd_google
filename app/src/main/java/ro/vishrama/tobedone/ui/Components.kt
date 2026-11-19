@@ -682,7 +682,7 @@ fun ReminderRows(
 
 /** Shows [text] in a black capsule in the middle of the screen for one second every time [trigger] goes up. */
 @Composable
-fun AddedConfirmation(text: String, trigger: Int) {
+fun AddedConfirmation(text: String, trigger: Int, color: Color = Color.White) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(trigger) {
         if (trigger > 0) {
@@ -701,9 +701,9 @@ fun AddedConfirmation(text: String, trigger: Int) {
                     .padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Check, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(text, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                Text(text, color = color, fontSize = 17.sp, fontWeight = FontWeight.Medium)
             }
         }
     }

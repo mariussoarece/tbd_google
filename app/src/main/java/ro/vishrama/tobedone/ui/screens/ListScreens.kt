@@ -242,7 +242,8 @@ fun MonthlyScreen(store: AppStore, onBack: () -> Unit) {
     val thisMonth = java.time.YearMonth.now(AppStore.zone())
 
     AddedConfirmation("Expense added", added)
-    AddedConfirmation(toast, toastCount)
+    // "Paid this month" in green; the other messages stay white
+    AddedConfirmation(toast, toastCount, color = if (toast == "Paid this month") IOS.Green else Color.White)
 
     DetailScreen("Monthly", IOS.Orange, onBack) {
         item { SectionHeader("Add Monthly Expense") }
